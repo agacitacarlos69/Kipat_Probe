@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">Kipat Probe</string>
+    <string name="arm_tag_write">Arm Tag Write</string>
+    <string name="status_ready">Status: Ready</string>
+    <string name="probe_verdict_logs">Probe Verdict Logs:</string>
+    <string name="no_logs_recorded_yet">No logs recorded yet.</string>
+
+    <string name="first_frame_measuring">First frame: measuring...</string>
+    <string name="select_backdrop_mode">Select Backdrop Mode:</string>
+    <string name="record_backdrop_verdict">Record Backdrop Verdict:</string>
+
+    <string name="mode_tran">TRAN</string>
+    <string name="mode_scri">SCRI</string>
+    <string name="mode_blur">BLUR</string>
+    <string name="mode_wall">WALL</string>
+
+    <string name="verdict_live">LIVE</string>
+    <string name="verdict_frozen">FROZEN</string>
+    <string name="verdict_black">BLACK</string>
+    <string name="verdict_home">HOME</string>
+</resources>
