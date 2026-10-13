@@ -44,9 +44,9 @@ fun AuthenticityState.present(isDemo: Boolean): AuthenticityPresentation {
     return when (this) {
         AuthenticityState.AUTHENTIC -> AuthenticityPresentation("Verified card", if (isDemo) "Sample data. No real verification ran" else "Card signature checked", StatusTone.POSITIVE, showsCheck = true, demoNote = note)
         AuthenticityState.CHECKING -> AuthenticityPresentation("Checking card", "Verifying this card", StatusTone.PENDING, showsCheck = false, demoNote = note)
-        AuthenticityState.UNVERIFIED -> AuthenticityPresentation("Unverified card", "Details came from the card and were not verified", StatusTone.WARNING, showsCheck = false, demoNote = note)
+        AuthenticityState.UNVERIFIED -> AuthenticityPresentation("Unverified card", "Details came from the card and were not verified", StatusTone.NEUTRAL, showsCheck = false, demoNote = note)
         AuthenticityState.REVOKED -> AuthenticityPresentation("Card revoked", "The owner revoked this card", StatusTone.NEGATIVE, showsCheck = false, demoNote = note)
-        AuthenticityState.ERROR -> AuthenticityPresentation("Couldn't verify", "Verification failed. Try again later", StatusTone.NEGATIVE, showsCheck = false, demoNote = note)
+        AuthenticityState.ERROR -> AuthenticityPresentation("Couldn't verify", "Showing details from the card. Try again later", StatusTone.WARNING, showsCheck = false, demoNote = note)
         AuthenticityState.UNKNOWN -> AuthenticityPresentation("Not verified", "Verification isn't available yet", StatusTone.NEUTRAL, showsCheck = false, demoNote = note)
     }
 }

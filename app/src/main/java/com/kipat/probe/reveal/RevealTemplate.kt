@@ -117,6 +117,26 @@ enum class NameEntry {
     WIPE,
 }
 
+/** Where a circular surface reveal grows from. */
+enum class MaskOrigin {
+    /** The card's top centre, where the contact ring lands (Contact Ripple). */
+    CONTACT_POINT,
+    /** The avatar's centre: the surface grows out of the identity anchor (Orbit, Aperture). */
+    AVATAR,
+}
+
+/**
+ * The surface is uncovered inside a growing circle, so it emerges from the motion instead of
+ * fading in after it. [startRadiusBeyondAvatarDp] keeps the avatar (and the ring or iris around
+ * it) visible before the surface grows.
+ */
+data class SurfaceMask(
+    val origin: MaskOrigin,
+    val startMs: Int,
+    val durationMs: Int,
+    val startRadiusBeyondAvatarDp: Float = 0f,
+)
+
 /** What each template becomes when motion is reduced. Every variant settles in 200 ms. */
 enum class ReducedMotion(val description: String) {
     CROSSFADE("Crossfade"),
@@ -141,14 +161,27 @@ data class RevealChoreography(
     val reduced: Boolean = false,
     /** Light-mode card shadow grows during the entrance (skipped on low-power devices). */
     val animatedShadow: Boolean = true,
+    /** Set when [surfaceEntry] is [SurfaceEntry.CIRCULAR_REVEAL]. */
+    val mask: SurfaceMask? = null,
 ) {
     companion object {
         fun forTemplate(template: RevealTemplateId, quality: RevealQuality = RevealQuality.HIGH): RevealChoreography {
             val full = when (template) {
-                RevealTemplateId.CONTACT_RIPPLE -> RevealChoreography(template, RevealTimeline.CONTACT_RIPPLE, EntryPrimitive.RIPPLE, SurfaceEntry.CIRCULAR_REVEAL, NameEntry.FADE, ReducedMotion.CONTACT_ACKNOWLEDGE)
-                RevealTemplateId.PRECISION_ORBIT -> RevealChoreography(template, RevealTimeline.PRECISION_ORBIT, EntryPrimitive.ORBIT, SurfaceEntry.FADE_SCALE, NameEntry.WIPE, ReducedMotion.STATIC_RING)
+                RevealTemplateId.CONTACT_RIPPLE -> RevealChoreography(
+                    template, RevealTimeline.CONTACT_RIPPLE, EntryPrimitive.RIPPLE, SurfaceEntry.CIRCULAR_REVEAL, NameEntry.FADE, ReducedMotion.CONTACT_ACKNOWLEDGE,
+                    mask = SurfaceMask(MaskOrigin.CONTACT_POINT, startMs = 40, durationMs = 720),
+                )
+                // The ring settles around the avatar, then the surface grows out of the ring.
+                RevealTemplateId.PRECISION_ORBIT -> RevealChoreography(
+                    template, RevealTimeline.PRECISION_ORBIT, EntryPrimitive.ORBIT, SurfaceEntry.CIRCULAR_REVEAL, NameEntry.WIPE, ReducedMotion.STATIC_RING,
+                    mask = SurfaceMask(MaskOrigin.AVATAR, startMs = 560, durationMs = 440, startRadiusBeyondAvatarDp = 14f),
+                )
                 RevealTemplateId.LINE_ASSEMBLY -> RevealChoreography(template, RevealTimeline.LINE_ASSEMBLY, EntryPrimitive.LINES, SurfaceEntry.FADE, NameEntry.WIPE, ReducedMotion.PERIMETER_FADE)
-                RevealTemplateId.APERTURE -> RevealChoreography(template, RevealTimeline.APERTURE, EntryPrimitive.APERTURE, SurfaceEntry.FADE, NameEntry.FADE, ReducedMotion.CROSSFADE)
+                // Only the avatar disc exists under the iris; once it opens, the surface unfolds from it.
+                RevealTemplateId.APERTURE -> RevealChoreography(
+                    template, RevealTimeline.APERTURE, EntryPrimitive.APERTURE, SurfaceEntry.CIRCULAR_REVEAL, NameEntry.FADE, ReducedMotion.CROSSFADE,
+                    mask = SurfaceMask(MaskOrigin.AVATAR, startMs = 520, durationMs = 380, startRadiusBeyondAvatarDp = 8f),
+                )
                 RevealTemplateId.SPATIAL_CARD -> RevealChoreography(template, RevealTimeline.SPATIAL_CARD, EntryPrimitive.EDGE, SurfaceEntry.TILT, NameEntry.FADE, ReducedMotion.SCALE_FADE)
                 RevealTemplateId.MINIMAL_FADE -> RevealChoreography(template, RevealTimeline.MINIMAL_FADE, EntryPrimitive.NONE, SurfaceEntry.FADE_RISE, NameEntry.FADE, ReducedMotion.CROSSFADE)
             }
@@ -175,6 +208,7 @@ data class RevealChoreography(
                 nameEntry = NameEntry.FADE,
                 reduced = true,
                 animatedShadow = false,
+                mask = null,
             )
         }
     }

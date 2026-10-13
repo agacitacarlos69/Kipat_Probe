@@ -38,6 +38,8 @@ data class RevealPayload(
     val secondaryCta: String,
     /** False for cards we couldn't identify (unresolved / legacy probe tags). */
     val connectable: Boolean = true,
+    /** A company/organisation identity: its mark is a logo (rounded square), not a person's portrait. */
+    val isOrganization: Boolean = false,
 ) {
     /**
      * Connect only makes sense for someone else's identity seen through a real tap, and only
@@ -113,6 +115,8 @@ object RevealPayloadCodec {
     const val KEY_DEMO = "kipat.reveal.demo"
     const val KEY_PRIMARY = "kipat.reveal.cta1"
     const val KEY_SECONDARY = "kipat.reveal.cta2"
+    const val KEY_KIND = "kipat.reveal.kind"
+    private const val KIND_ORGANIZATION = "org"
 
     data class Decoded(val payload: RevealPayload, val issues: List<String>) {
         val isClean: Boolean get() = issues.isEmpty()
@@ -132,6 +136,7 @@ object RevealPayloadCodec {
         put(KEY_DEMO, p.isDemo.toString())
         put(KEY_PRIMARY, p.primaryCta)
         put(KEY_SECONDARY, p.secondaryCta)
+        if (p.isOrganization) put(KEY_KIND, KIND_ORGANIZATION)
     }
 
     /** True when the extras contain an explicit payload (as opposed to a bare NFC/deep link). */
@@ -175,6 +180,8 @@ object RevealPayloadCodec {
             isDemo = get(KEY_DEMO)?.toBooleanStrictOrNull() ?: false,
             primaryCta = sanitizeLine(get(KEY_PRIMARY), 24) ?: RevealPayload.defaultPrimaryCta(source),
             secondaryCta = sanitizeLine(get(KEY_SECONDARY), 24) ?: RevealPayload.defaultSecondaryCta(source),
+            // Anything other than the organisation marker is a person; never an error.
+            isOrganization = get(KEY_KIND) == KIND_ORGANIZATION,
         )
         return Decoded(payload, issues)
     }

@@ -51,7 +51,8 @@ class RevealTemplateGalleryTest {
     @Config(qualifiers = "w411dp-h891dp-notnight-xxhdpi")
     fun reducedMotionIsReadableOnItsFirstFrames() = renderAll("reduced", RevealQuality.REDUCED_MOTION, frames = listOf(0L, 60L))
 
-    private fun renderAll(tag: String, quality: RevealQuality, frames: List<Long> = listOf(100L, 250L, 450L, 700L)) {
+    /** Frames at 0 / 25 / 50 / 75 % of each template's own timeline, then settled (100 %). */
+    private fun renderAll(tag: String, quality: RevealQuality, frames: List<Long>? = null) {
         var template by androidx.compose.runtime.mutableStateOf(RevealTemplateId.DEFAULT)
         var ms by mutableLongStateOf(0L)
         val identity = KipatRepository.identity.value
@@ -71,10 +72,11 @@ class RevealTemplateGalleryTest {
         RevealTemplateId.entries.forEach { t ->
             template = t
             val total = RevealChoreography.forTemplate(t, quality).timeline.totalDuration.toLong()
-            frames.forEach { at ->
+            val stops = frames?.map { "${it}ms" to it } ?: listOf(0, 25, 50, 75).map { pct -> "p$pct" to total * pct / 100 }
+            stops.forEach { (label, at) ->
                 ms = at
                 compose.waitForIdle()
-                screenshot("$tag-${t.wireId}-${at}ms")
+                screenshot("$tag-${t.wireId}-$label")
             }
             ms = total
             compose.waitForIdle()

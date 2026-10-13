@@ -11,26 +11,26 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kipat.probe.data.KipatRepository
 import com.kipat.probe.data.toRevealPayload
 import com.kipat.probe.model.ProfileField
-import com.kipat.probe.model.initialsOf
 import com.kipat.probe.reveal.RevealLauncher
 import com.kipat.probe.reveal.RevealSource
 import com.kipat.probe.ui.components.ActionRow
-import com.kipat.probe.ui.components.IdentityBlock
 import com.kipat.probe.ui.components.KipatDivider
 import com.kipat.probe.ui.components.KipatPrimaryButton
 import com.kipat.probe.ui.components.KipatSecondaryButton
 import com.kipat.probe.ui.components.KipatSymbols
 import com.kipat.probe.ui.components.KipatTopBar
-import com.kipat.probe.ui.components.RecipientCard
+import com.kipat.probe.reveal.KipatIdentitySurface
+import com.kipat.probe.reveal.RevealPresentation
+import com.kipat.probe.ui.theme.RevealPalette
+import androidx.compose.foundation.isSystemInDarkTheme
 import com.kipat.probe.ui.components.SectionHeading
 import com.kipat.probe.ui.theme.Kipat
 import com.kipat.probe.ui.theme.KipatSpacing
@@ -68,17 +68,16 @@ fun ProfileScreen(
                     color = Kipat.colors.textSecondary,
                     modifier = Modifier.padding(start = KipatSpacing.gutter, end = KipatSpacing.gutter, top = KipatSpacing.s8, bottom = KipatSpacing.s12),
                 )
-                RecipientCard(Modifier.padding(horizontal = KipatSpacing.gutter)) {
-                    IdentityBlock(
-                        displayName = identity.displayName,
-                        subtitle = identity.subtitle,
-                        organization = identity.organization,
-                        initials = initialsOf(identity.displayName),
-                        authenticity = card.authenticity,
-                        isDemo = card.isDemo,
-                        avatarSize = 56.dp,
-                    )
-                }
+                // The same identity surface recipients see (without the actions, which are theirs).
+                val dark = isSystemInDarkTheme()
+                val payload = identity.toRevealPayload(RevealSource.PREVIEW, isDemo = card.isDemo, authenticity = card.authenticity)
+                KipatIdentitySurface(
+                    payload = payload,
+                    presentation = RevealPresentation.of(identity.revealTemplate, identity.revealTheme),
+                    palette = RevealPalette.of(identity.revealTheme, dark),
+                    modifier = Modifier.padding(horizontal = KipatSpacing.gutter),
+                    inShell = true,
+                )
                 Row(
                     Modifier
                         .fillMaxWidth()

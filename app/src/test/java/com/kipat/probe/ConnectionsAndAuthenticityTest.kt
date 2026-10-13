@@ -64,9 +64,10 @@ class ConnectionsAndAuthenticityTest {
     @Test
     fun authenticityTonesAreDistinctForKeyStates() {
         assertEquals(StatusTone.POSITIVE, AuthenticityState.AUTHENTIC.present(false).tone)
-        assertEquals(StatusTone.WARNING, AuthenticityState.UNVERIFIED.present(false).tone)
+        // Unverified is neutral information, not a warning; couldn't-verify is a fallback, not an alarm.
+        assertEquals(StatusTone.NEUTRAL, AuthenticityState.UNVERIFIED.present(false).tone)
         assertEquals(StatusTone.NEGATIVE, AuthenticityState.REVOKED.present(false).tone)
-        assertEquals(StatusTone.NEGATIVE, AuthenticityState.ERROR.present(false).tone)
+        assertEquals(StatusTone.WARNING, AuthenticityState.ERROR.present(false).tone)
         assertEquals(StatusTone.PENDING, AuthenticityState.CHECKING.present(false).tone)
         assertEquals(StatusTone.NEUTRAL, AuthenticityState.UNKNOWN.present(false).tone)
         assertFalse(AuthenticityState.UNKNOWN.present(false).label.contains("Verified"))

@@ -1,35 +1,41 @@
 package com.kipat.probe.reveal
 
 import androidx.compose.foundation.Canvas
+import android.graphics.BitmapFactory
+import androidx.core.net.toUri
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.BiasAlignment
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,7 +49,7 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -53,28 +59,18 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import com.kipat.probe.model.AuthenticityState
 import com.kipat.probe.reveal.effects.RevealEffects
 import com.kipat.probe.reveal.effects.RevealEffects.drawOver
 import com.kipat.probe.reveal.effects.RevealEffects.drawUnder
 import com.kipat.probe.reveal.effects.RevealGeometry
 import com.kipat.probe.reveal.effects.RevealInk
 import com.kipat.probe.reveal.effects.RevealPaths
-import com.kipat.probe.ui.components.IdentityBlock
 import com.kipat.probe.ui.components.IdentitySlots
-import com.kipat.probe.ui.components.KipatPrimaryButton
-import com.kipat.probe.ui.components.KipatSecondaryButton
-import com.kipat.probe.ui.components.KipatSymbols
-import com.kipat.probe.ui.components.RecipientCard
 import com.kipat.probe.ui.theme.KipatRadius
 import com.kipat.probe.ui.theme.KipatSpacing
 import com.kipat.probe.ui.theme.RevealPalette
 
 enum class RevealMilestone { FIRST_VISUAL, IDENTITY_READABLE, VERIFIED, COMPLETE }
-
-/** Card layout constants the primitives anchor to (RecipientCard padding + Reveal avatar). */
-private val CardPadding = KipatSpacing.s24
-private val RevealAvatar = 56.dp
 
 /**
  * The single Reveal renderer (NFC, deep link, Preview, Replay). Owns the clock and milestones;
@@ -140,9 +136,13 @@ fun RevealScreen(
 }
 
 /**
- * The Reveal at a given moment: scrim, the template's primitive (under or over the card), the
- * card with its surface entry, identity staged in reading order, and actions. Stateless about
- * time, so previews and screenshot tests can render any frame.
+ * The Reveal at a given moment: backdrop, the template's primitive (under or over the surface),
+ * the [KipatIdentitySurface] emerging through the template's surface entry, identity staged in
+ * reading order, and actions. Stateless about time, so previews, the style picker and screenshot
+ * tests can render any frame.
+ *
+ * [contained] renders without system-bar insets, the preview label or tap-to-dismiss, for the
+ * style picker's live preview.
  *
  * Per-frame values are read only in draw/graphicsLayer lambdas (no per-frame recomposition).
  */
@@ -156,11 +156,14 @@ fun RevealStage(
     onSaveContact: () -> Unit,
     onOpenProfile: () -> Unit,
     onDismiss: () -> Unit,
+    contained: Boolean = false,
 ) {
     val timeline = choreography.timeline
     val dark = isSystemInDarkTheme()
+    val presentation = remember(payload.template, payload.theme) { RevealPresentation.of(payload.template, payload.theme) }
     val palette = remember(payload.theme, dark) { RevealPalette.of(payload.theme, dark) }
-    val ink = remember(palette) { RevealInk(palette.ink, palette.accent, palette.card.surfaceElevated) }
+    val style = remember(palette, presentation) { palette.surface(presentation.treatment) }
+    val ink = remember(palette, style) { RevealInk(palette.ink, palette.accent, style.container) }
     val paths = remember { RevealPaths() }
     val maskPath = remember { Path() }
     val density = LocalDensity.current
@@ -168,63 +171,97 @@ fun RevealStage(
     val frame by remember(timeline) { derivedStateOf { RevealEngine.frameAt(elapsedMs(), timeline) } }
     // Keyed on the timeline: a new tap with a different template must not keep the old clock.
     val ctaReady by remember(timeline) { derivedStateOf { frame.cta > 0.5f } }
+    val avatar = rememberAvatarBitmap(payload.avatarUri)
 
     var cardRect by remember { mutableStateOf<Rect?>(null) }
-    val geometry = remember(cardRect, density, rtl) { cardRect?.let { revealGeometry(it, density, rtl) } }
+    // Card bounds are taken relative to the stage, so the stage also works scaled inside the picker.
+    // [0] stage, [1] card. Either callback may run first, so both recompute.
+    val coords = remember { arrayOfNulls<LayoutCoordinates>(2) }
+    fun measureCard() {
+        val s = coords[0] ?: return
+        val c = coords[1] ?: return
+        if (s.isAttached && c.isAttached) cardRect = s.localBoundingBoxOf(c, clipBounds = false)
+    }
+    val geometry = remember(cardRect, density, rtl, presentation.layout) {
+        cardRect?.let { revealGeometry(it, presentation.layout, density, rtl) }
+    }
+    val actions = SurfaceActions(
+        connected = connected,
+        ready = { ctaReady },
+        onConnect = onConnect,
+        onSaveContact = onSaveContact,
+        onOpenProfile = onOpenProfile,
+        onDone = onDismiss,
+    )
 
     Box(
         Modifier
             .fillMaxSize()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClickLabel = "Dismiss",
-                onClick = onDismiss,
+            .onGloballyPositioned { coords[0] = it; measureCard() }
+            .then(
+                if (contained) {
+                    Modifier
+                } else {
+                    Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClickLabel = "Dismiss",
+                        onClick = onDismiss,
+                    )
+                },
             ),
     ) {
         Canvas(Modifier.fillMaxSize()) {
             val ms = elapsedMs()
-            // Scrim: quick to its base, then deepens as the card resolves; the app underneath stays faintly visible.
+            // Backdrop: quick to its base, then deepens as the surface resolves; the app underneath stays faintly visible.
             val scrim = (ms / 150f).coerceIn(0f, 1f) * (palette.scrimBase + (palette.scrimPeak - palette.scrimBase) * frame.surface)
-            drawRect(palette.scrim, alpha = scrim)
+            // Contained (picker): the host panel is the backdrop.
+            if (!contained) drawRect(palette.scrim, alpha = scrim)
             geometry?.let { drawUnder(choreography, frame, it, ink) }
         }
 
-        Column(
+        BoxWithConstraints(
             Modifier
                 .fillMaxSize()
-                .safeDrawingPadding()
-                .padding(horizontal = KipatSpacing.s24),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .then(if (contained) Modifier else Modifier.safeDrawingPadding())
+                .padding(horizontal = SurfaceMetrics.MARGIN_DP.dp, vertical = KipatSpacing.s16),
         ) {
-            if (payload.source == RevealSource.PREVIEW) {
+            if (payload.source == RevealSource.PREVIEW && !contained) {
                 Text(
                     "Preview of your Reveal",
                     style = MaterialTheme.typography.bodyMedium,
                     color = palette.onScrim,
-                    modifier = Modifier.padding(top = KipatSpacing.s16),
+                    modifier = Modifier.align(Alignment.TopCenter),
                 )
             }
-            Spacer(Modifier.weight(0.8f))
-
-            val cardShape = MaterialTheme.shapes.large
+            val cardShape = RoundedCornerShape(style.radiusDp.dp)
             Box(
                 Modifier
-                    .widthIn(max = 420.dp)
-                    // Measured outside every transform, so primitives anchor to the settled card.
-                    .onGloballyPositioned { cardRect = it.boundsInRoot() }
-                    // Swallow taps on the card so only the backdrop dismisses.
+                    // Slightly above centre; never taller than the window (scrolls only in that case).
+                    .align(BiasAlignment(0f, -0.2f))
+                    .widthIn(max = SurfaceMetrics.MAX_WIDTH_DP.dp)
+                    .heightIn(max = maxHeight)
+                    // Measured outside every transform, so primitives anchor to the settled surface.
+                    .onGloballyPositioned { coords[1] = it; measureCard() }
+                    // Swallow taps on the surface so only the backdrop dismisses.
                     .pointerInput(Unit) { detectTapGestures { } }
                     .semantics { liveRegion = LiveRegionMode.Polite }
                     .drawWithContent {
-                        // Contact Ripple: the card is uncovered inside the ripple's leading edge.
-                        val maxRadius = RevealEffects.rippleMaxRadius(size.width, size.height, density.density)
-                        val r = RevealEffects.revealRadius(choreography, elapsedMs(), maxRadius)
+                        // Orbit, Aperture, Contact Ripple: the surface is uncovered inside a growing circle.
+                        val g = geometry
+                        val r = if (g == null) {
+                            null
+                        } else {
+                            val local = g.translatedToSurface()
+                            val origin = RevealEffects.maskOrigin(choreography, local)
+                            RevealEffects.maskRadius(choreography, elapsedMs(), RevealEffects.maskMaxRadius(local.card, origin, local.u), RevealEffects.maskStartRadius(choreography, local))
+                                ?.let { origin to it }
+                        }
                         if (r == null) {
                             drawContent()
                         } else {
                             maskPath.reset()
-                            maskPath.addOval(Rect(Offset(size.width / 2f, 0f), r))
+                            maskPath.addOval(Rect(r.first, r.second))
                             clipPath(maskPath) { this@drawWithContent.drawContent() }
                         }
                     }
@@ -248,20 +285,20 @@ fun RevealStage(
                             }
                             SurfaceEntry.CIRCULAR_REVEAL, SurfaceEntry.FADE -> Unit
                         }
-                        // Light mode only. Spatial Card's shadow forms as it lands; elsewhere it's constant.
-                        if (!dark) {
+                        // Light mode only; dark surfaces separate by tone and edge. Spatial Card's shadow forms as it lands.
+                        if (!dark && style.shadowDp > 0f) {
                             val landed = if (choreography.surfaceEntry == SurfaceEntry.TILT && choreography.animatedShadow) {
                                 1f - tilt / RevealEffects.MAX_TILT_DEGREES
                             } else {
                                 1f
                             }
-                            shadowElevation = 12.dp.toPx() * landed
+                            shadowElevation = style.shadowDp.dp.toPx() * landed
                             shape = cardShape
                             clip = false
                         }
                     }
                     .drawBehind {
-                        // Spatial Card: the card's edge, visible only while tilted; same layer, same perspective.
+                        // Spatial Card: the surface's edge, visible only while tilted; same layer, same perspective.
                         val tilt = RevealEffects.tiltDegrees(choreography, elapsedMs())
                         if (tilt > 0.05f) {
                             val thickness = 3.dp.toPx() * tilt / RevealEffects.MAX_TILT_DEGREES
@@ -270,120 +307,79 @@ fun RevealStage(
                                 if (dark) palette.ink.copy(alpha = 0.22f) else palette.card.outline.copy(alpha = 0.45f),
                                 topLeft = Offset(0f, thickness),
                                 size = size,
-                                cornerRadius = CornerRadius(KipatRadius.large.toPx()),
+                                cornerRadius = CornerRadius(style.radiusDp.dp.toPx()),
                             )
                         }
                     },
             ) {
-                RecipientCard(colors = palette.card) {
-                    Column {
-                        IdentityBlock(
-                            displayName = payload.displayName,
-                            subtitle = payload.subtitle,
-                            organization = payload.organization,
-                            initials = payload.initials,
-                            authenticity = payload.authenticity,
-                            isDemo = payload.isDemo,
-                            colors = palette.card,
-                            avatarSize = RevealAvatar,
-                            wipeName = choreography.nameEntry == NameEntry.WIPE,
-                            slots = { frame.let { IdentitySlots(it.avatar, it.name, it.role, it.verify) } },
-                            trailing = {
-                                IconButton(onClick = onDismiss) {
-                                    Icon(KipatSymbols.Close, contentDescription = "Close", tint = palette.card.textSecondary)
-                                }
-                            },
-                        )
-                        Spacer(Modifier.height(KipatSpacing.s24))
-                        RevealActions(
-                            payload = payload,
-                            palette = palette,
-                            connected = connected,
-                            ready = ctaReady,
-                            onConnect = onConnect,
-                            onSaveContact = onSaveContact,
-                            onOpenProfile = onOpenProfile,
-                            onDone = onDismiss,
-                            modifier = Modifier.graphicsLayer {
-                                alpha = frame.cta
-                                translationY = (1f - frame.cta) * 6.dp.toPx()
-                            },
-                        )
-                    }
-                }
+                KipatIdentitySurface(
+                    payload = payload,
+                    presentation = presentation,
+                    palette = palette,
+                    actions = actions,
+                    onDismiss = onDismiss,
+                    avatar = avatar,
+                    wipeName = choreography.nameEntry == NameEntry.WIPE,
+                    slots = { frame.let { IdentitySlots(it.avatar, it.name, it.role, it.verify) } },
+                    actionsProgress = { frame.cta },
+                    // Unusually long content scrolls inside the surface instead of pushing actions off screen.
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                )
             }
-            Spacer(Modifier.weight(1f))
         }
 
-        // Primitives that sit on the avatar (orbit ring, aperture blades) draw above the card.
+        // Primitives that sit on the avatar (orbit ring, aperture blades) draw above the surface.
         Canvas(Modifier.fillMaxSize()) {
             geometry?.let { drawOver(choreography, frame, it, ink, paths) }
         }
     }
 }
 
-private fun revealGeometry(card: Rect, density: Density, rtl: Boolean): RevealGeometry {
+/** Primitives anchor to the avatar of the [layout] (top-start of the surface, mirrored in RTL). */
+private fun revealGeometry(card: Rect, layout: IdentityLayout, density: Density, rtl: Boolean): RevealGeometry {
     val u = density.density
-    val inset = (CardPadding.value + RevealAvatar.value / 2f) * u
+    val inset = SurfaceMetrics.avatarCenterDp(layout, card.width / u) * u
     val x = if (rtl) card.right - inset else card.left + inset
     return RevealGeometry(
         card = card,
         avatarCenter = Offset(x, card.top + inset),
-        avatarRadius = RevealAvatar.value / 2f * u,
+        avatarRadius = layout.avatarDp / 2f * u,
         cornerRadius = KipatRadius.large.value * u,
         u = u,
     )
 }
 
+/** The same geometry in the surface's own coordinates (for its mask). */
+private fun RevealGeometry.translatedToSurface(): RevealGeometry {
+    val o = card.topLeft
+    return RevealGeometry(Rect(Offset.Zero, card.size), avatarCenter - o, avatarRadius, cornerRadius, u, hair)
+}
+
+/**
+ * Loads a local avatar/logo (`content://`) off the main thread, downsampled. Remote images aren't
+ * loaded (the app has no network permission); the monogram stays until a bitmap arrives.
+ */
 @Composable
-private fun RevealActions(
-    payload: RevealPayload,
-    palette: RevealPalette,
-    connected: Boolean,
-    ready: Boolean,
-    onConnect: () -> Unit,
-    onSaveContact: () -> Unit,
-    onOpenProfile: () -> Unit,
-    onDone: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(KipatSpacing.s12)) {
-        if (!payload.connectable) {
-            // Unresolved card: nothing to connect to or save.
-            KipatPrimaryButton("Done", onClick = onDone, enabled = ready, container = palette.accent, content = palette.onAccent, modifier = Modifier.fillMaxWidth())
-            return@Column
-        }
-        val isConnected = connected || payload.source == RevealSource.REPLAY
-        KipatPrimaryButton(
-            text = if (isConnected) "Connected" else payload.primaryCta,
-            icon = if (isConnected) KipatSymbols.Check else KipatSymbols.PersonAdd,
-            onClick = onConnect,
-            enabled = ready && !isConnected && payload.authenticity != AuthenticityState.REVOKED,
-            container = palette.accent,
-            content = palette.onAccent,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        // "Open profile" only when there is a profile in Kipat to open: a connection, or your own preview.
-        val canOpen = isConnected || payload.source == RevealSource.PREVIEW
-        Row(horizontalArrangement = Arrangement.spacedBy(KipatSpacing.s12)) {
-            KipatSecondaryButton(
-                payload.secondaryCta,
-                onClick = onSaveContact,
-                enabled = ready,
-                contentColor = palette.card.textPrimary,
-                borderColor = palette.card.outline,
-                modifier = Modifier.weight(1f),
-            )
-            if (canOpen) {
-                KipatSecondaryButton(
-                    "Open profile",
-                    onClick = onOpenProfile,
-                    enabled = ready,
-                    contentColor = palette.card.textPrimary,
-                    borderColor = palette.card.outline,
-                    modifier = Modifier.weight(1f),
-                )
+private fun rememberAvatarBitmap(uri: String?): ImageBitmap? {
+    if (uri == null || !uri.startsWith("content://")) return null
+    val context = LocalContext.current
+    val bitmap by produceState<ImageBitmap?>(null, uri) {
+        value = withContext(Dispatchers.IO) {
+            try {
+                val resolver = context.contentResolver
+                val parsed = uri.toUri()
+                val target = 256
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                resolver.openInputStream(parsed)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+                var sample = 1
+                while (bounds.outWidth / (sample * 2) >= target && bounds.outHeight / (sample * 2) >= target) sample *= 2
+                resolver.openInputStream(parsed)?.use {
+                    BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
+                }?.asImageBitmap()
+            } catch (_: Exception) {
+                null // A missing or unreadable image keeps the monogram.
             }
         }
     }
+    return bitmap
 }

@@ -20,9 +20,17 @@ data class RevealTimeline(
     val verifyStart: Int,
     val ctaStart: Int,
     val stepDuration: Int,
+    /** When the template's primitive has fully finished (rings gone, lines faded, tilt flat). */
+    val primitiveEndMs: Int = 0,
 ) {
-    /** When everything has settled and the Reveal is complete. */
-    val totalDuration: Int get() = ctaStart + stepDuration
+    /** When the actions are in place. */
+    val contentSettledAt: Int get() = ctaStart + stepDuration
+
+    /**
+     * When the Reveal is complete and the clock stops: content settled *and* the primitive done,
+     * so nothing is ever frozen mid-motion. After this the frame is static.
+     */
+    val totalDuration: Int get() = maxOf(contentSettledAt, primitiveEndMs)
 
     /** When name and role/organisation are fully shown. */
     val identityReadableAt: Int get() = maxOf(nameStart, roleStart) + stepDuration
@@ -31,11 +39,13 @@ data class RevealTimeline(
     val verifiedAt: Int get() = verifyStart + stepDuration
 
     companion object {
-        val CONTACT_RIPPLE = RevealTimeline(40, 120, 260, 340, 420, 760, 920, 300)
-        val PRECISION_ORBIT = RevealTimeline(420, 300, 560, 720, 820, 1000, 1100, 300)
-        val LINE_ASSEMBLY = RevealTimeline(600, 300, 760, 840, 940, 1040, 1100, 300)
-        val APERTURE = RevealTimeline(40, 300, 40, 520, 620, 820, 940, 300)
-        val SPATIAL_CARD = RevealTimeline(0, 250, 380, 480, 580, 780, 900, 300)
+        // Content, trust and actions arrive as the surface reaches them (design/reveal-surface/):
+        // no empty card, no empty lower half waiting for buttons.
+        val CONTACT_RIPPLE = RevealTimeline(40, 120, 120, 180, 240, 300, 380, 300, primitiveEndMs = 900)
+        val PRECISION_ORBIT = RevealTimeline(560, 80, 560, 700, 760, 780, 860, 300, primitiveEndMs = 1160)
+        val LINE_ASSEMBLY = RevealTimeline(600, 300, 640, 680, 720, 780, 840, 300, primitiveEndMs = 1200)
+        val APERTURE = RevealTimeline(40, 120, 40, 600, 640, 700, 780, 300, primitiveEndMs = 640)
+        val SPATIAL_CARD = RevealTimeline(0, 250, 60, 100, 140, 340, 400, 300, primitiveEndMs = 700)
         val MINIMAL_FADE = RevealTimeline(40, 280, 40, 40, 40, 300, 380, 240)
 
         /** Reduced motion: one 200 ms fade; everything readable as soon as it starts. */

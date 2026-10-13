@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.lerp
 import com.kipat.probe.reveal.EntryPrimitive
 import com.kipat.probe.reveal.KipatEasing
+import com.kipat.probe.reveal.MaskOrigin
 import com.kipat.probe.reveal.RevealChoreography
 import com.kipat.probe.reveal.RevealEngine
 import com.kipat.probe.reveal.RevealEngine.eased
@@ -23,6 +24,7 @@ import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
+import kotlin.math.max
 import kotlin.math.sin
 import kotlin.math.sqrt
 
@@ -82,20 +84,37 @@ object RevealEffects {
     fun rippleOrigin(card: Rect) = Offset(card.center.x, card.top)
 
     /** Farthest card corner from the contact point, plus a little so the edge clears the corners. */
-    fun rippleMaxRadius(geo: RevealGeometry): Float = rippleMaxRadius(geo.card.width, geo.card.height, geo.u)
+    fun rippleMaxRadius(geo: RevealGeometry): Float = maskMaxRadius(geo.card, rippleOrigin(geo.card), geo.u)
 
-    /** Same, from the card's size (the bottom corners are equidistant from the top centre). */
-    fun rippleMaxRadius(width: Float, height: Float, u: Float): Float = hypot(width / 2f, height) + 8f * u
+    /** Farthest corner of [card] from [origin], plus a little so the edge clears the corner. */
+    fun maskMaxRadius(card: Rect, origin: Offset, u: Float): Float {
+        val dx = max(origin.x - card.left, card.right - origin.x)
+        val dy = max(origin.y - card.top, card.bottom - origin.y)
+        return hypot(dx, dy) + 8f * u
+    }
 
     /**
-     * Radius (px) of the circular reveal that uncovers the card in Contact Ripple, or null once
-     * the card is fully uncovered (or the template doesn't mask).
+     * Radius (px) of the circle the surface is uncovered inside ([RevealChoreography.mask]), or
+     * null once it is fully uncovered (or the template doesn't mask). Contact Ripple grows from the
+     * contact point on M3 standard; Orbit and Aperture grow out of the avatar's ring/iris.
      */
-    fun revealRadius(ch: RevealChoreography, elapsedMs: Long, maxRadius: Float): Float? {
-        if (ch.primitive != EntryPrimitive.RIPPLE || ch.reduced) return null
-        val p = linear(elapsedMs, RIPPLE_START, RIPPLE_DURATION)
+    fun maskRadius(ch: RevealChoreography, elapsedMs: Long, maxRadius: Float, startRadius: Float): Float? {
+        val m = ch.mask ?: return null
+        if (ch.reduced) return null
+        val p = linear(elapsedMs, m.startMs, m.durationMs)
         if (p >= 1f) return null
-        return maxRadius * KipatEasing.Fast.ease(p)
+        val curve = if (m.origin == MaskOrigin.CONTACT_POINT) KipatEasing.Fast else KipatEasing.Standard
+        return startRadius + (maxRadius - startRadius) * curve.ease(p)
+    }
+
+    /** Where [ch]'s mask grows from, in the same coordinates as [geo]. */
+    fun maskOrigin(ch: RevealChoreography, geo: RevealGeometry): Offset =
+        if (ch.mask?.origin == MaskOrigin.AVATAR) geo.avatarCenter else rippleOrigin(geo.card)
+
+    /** Initial mask radius: around the avatar (plus the ring/iris), or zero at the contact point. */
+    fun maskStartRadius(ch: RevealChoreography, geo: RevealGeometry): Float {
+        val m = ch.mask ?: return 0f
+        return if (m.origin == MaskOrigin.AVATAR) geo.avatarRadius + m.startRadiusBeyondAvatarDp * geo.u else 0f
     }
 
     /** Ripple timing: ring A is also the edge of the card's circular reveal. */
@@ -133,10 +152,12 @@ object RevealEffects {
     private fun DrawScope.drawOrbit(ch: RevealChoreography, frame: RevealFrame, geo: RevealGeometry, ink: RevealInk) {
         val c = geo.avatarCenter
         val r0 = geo.avatarRadius + 10f * geo.u
+        // Settles as a hairline frame 5 dp outside the avatar, clear of the name beside it.
+        val rSettled = geo.avatarRadius + 5f * geo.u
         val settled = 0.35f
         if (ch.reduced) {
             // Static ring: the settled state fades in with the card.
-            drawCircle(ink.accent.copy(alpha = settled * frame.surface), r0 + 4f * geo.u, c, style = Stroke(1f * geo.hair))
+            drawCircle(ink.accent.copy(alpha = settled * frame.surface), rSettled, c, style = Stroke(1f * geo.hair))
             return
         }
         val ms = frame.elapsedMs
@@ -150,11 +171,12 @@ object RevealEffects {
         // A quarter turn, once; the arcs stay symmetric (180° apart, equal sweep) so it never reads as a spinner.
         val rot = 90f * KipatEasing.emphasized(linear(ms, 120, 430))
         val sweep = 100f + 80f * eased(ms, 300, 250)
-        val expand = eased(ms, 450, 250)
-        val radius = r0 + 4f * geo.u * expand
-        val stroke = Stroke((1.5f - 0.5f * expand) * geo.hair, cap = StrokeCap.Butt)
+        // Once closed, the ring tightens onto the avatar: the anchor the surface then grows from.
+        val tighten = eased(ms, 450, 250)
+        val radius = r0 + (rSettled - r0) * tighten
+        val stroke = Stroke((1.5f - 0.5f * tighten) * geo.hair, cap = StrokeCap.Butt)
         val color = lerp(ink.ink, ink.accent, eased(ms, 550, 150))
-        val alpha = appear * (1f - (1f - settled) * eased(ms, 1100, 300))
+        val alpha = appear * (1f - (1f - settled) * eased(ms, ch.timeline.ctaStart, 300))
         val topLeft = Offset(c.x - radius, c.y - radius)
         val size = Size(radius * 2, radius * 2)
         if (sweep >= 179.5f) {
@@ -293,7 +315,7 @@ object RevealEffects {
 
     /** rotationX of the card: 6° → 0 on the Kipat settle spring (ζ 0.9). Zero when reduced. */
     fun tiltDegrees(ch: RevealChoreography, elapsedMs: Long): Float =
-        if (ch.primitive != EntryPrimitive.EDGE || ch.reduced) 0f
+        if (ch.primitive != EntryPrimitive.EDGE || ch.reduced || elapsedMs >= ch.timeline.primitiveEndMs) 0f
         else MAX_TILT_DEGREES * (1f - KipatEasing.spring(elapsedMs)).coerceIn(0f, 1f)
 
     // ---- Picker glyphs -------------------------------------------------------------------
@@ -323,7 +345,8 @@ object RevealEffects {
         val geo = RevealGeometry(card, Offset(card.left + 52f * u, card.top + 52f * u), 28f * u, 16f * u, u, hair)
 
         drawUnder(ch, frame, geo, ink)
-        val reveal = revealRadius(ch, ms, rippleMaxRadius(geo))
+        val origin = maskOrigin(ch, geo)
+        val reveal = maskRadius(ch, ms, maskMaxRadius(card, origin, u), maskStartRadius(ch, geo))
         val drawCard: DrawScope.() -> Unit = {
             if (template == RevealTemplateId.SPATIAL_CARD) {
                 // Illustrative: the arriving card, top edge slightly further away, its edge showing.
@@ -347,8 +370,7 @@ object RevealEffects {
         }
         if (reveal != null) {
             paths.clip.reset()
-            val o = rippleOrigin(card)
-            paths.clip.addOval(Rect(o.x - reveal, o.y - reveal, o.x + reveal, o.y + reveal))
+            paths.clip.addOval(Rect(origin, reveal))
             clipPath(paths.clip) { drawCard() }
         } else {
             drawCard()

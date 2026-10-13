@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import com.kipat.probe.model.StatusTone
 import com.kipat.probe.reveal.RevealTheme
+import com.kipat.probe.reveal.SurfaceTreatment
 
 /**
  * Quiet Graphite palette. Values and measured contrast are documented in
@@ -42,9 +43,22 @@ internal object Palette {
     val WarningDark = Color(0xFFE0A645)
     val RevokedDark = Color(0xFFF2766B)
 
-    /** Reveal scrim over the previous app: graphite in dark theme, paper in light theme. */
-    val Scrim = Color(0xFF0E0F12)
-    val ScrimLight = PaperBackground
+    /**
+     * Reveal backdrop over the previous app. Light is a grey a step darker than every light
+     * surface, so the identity surface separates by tone, not by shadow alone.
+     */
+    val Scrim = Color(0xFF0B0C0E)
+    val ScrimLight = Color(0xFFE4E4DF)
+
+    // Reveal identity surfaces (design/reveal-surface/surface-directions.md). Text contrast on
+    // each is measured ≥ 4.5:1 for primary, secondary and tertiary ink.
+    val SurfacePaperLight = Color(0xFFFCFCFA)
+    val SurfaceTonalLight = Color(0xFFF7F5F0)
+    val SurfaceBorderLight = Color(0xFFDEDED9)
+    val SurfaceFloatBorderLight = Color(0xFFE4E4E0)
+    val SurfacePaperDark = Color(0xFF1F2023)
+    val SurfaceTonalDark = Color(0xFF232428)
+    val SurfaceBorderDark = Color(0xFF34363C)
 }
 
 /** Theme-independent colours: QR codes stay dark-on-white in every theme so all scanners read them. */
@@ -141,6 +155,34 @@ data class RevealPalette(
     val onAccent: Color,
     val card: KipatColors,
 ) {
+    /** The identity surface's material for [treatment]: container, edge, depth and rule. */
+    fun surface(treatment: SurfaceTreatment): SurfaceStyle {
+        val dark = card.isDark
+        return when (treatment) {
+            SurfaceTreatment.PAPER -> if (dark) {
+                SurfaceStyle(Palette.SurfacePaperDark, Palette.SurfaceBorderDark, 0f, 16f, Palette.SurfaceBorderDark)
+            } else {
+                SurfaceStyle(Palette.SurfacePaperLight, Palette.SurfaceBorderLight, 2f, 16f, Palette.SurfaceBorderLight)
+            }
+            SurfaceTreatment.TONAL -> if (dark) {
+                SurfaceStyle(Palette.SurfaceTonalDark, Palette.SurfaceBorderDark, 0f, 16f, Palette.SurfaceBorderDark)
+            } else {
+                SurfaceStyle(Palette.SurfaceTonalLight, null, 6f, 16f, Palette.PaperDivider)
+            }
+            // Outline tokens: ≥ 3:1 against the surface (3.23 light, 3.6 dark).
+            SurfaceTreatment.STRUCTURAL -> if (dark) {
+                SurfaceStyle(Palette.SurfacePaperDark, Palette.GraphiteOutline, 0f, 12f, Palette.GraphiteOutline, fullBleedRule = true)
+            } else {
+                SurfaceStyle(Palette.SurfacePaperLight, Palette.PaperOutline, 0f, 12f, Palette.PaperOutline, fullBleedRule = true)
+            }
+            SurfaceTreatment.FLOATING -> if (dark) {
+                SurfaceStyle(Palette.GraphiteElevated, Palette.SurfaceBorderDark, 0f, 16f, Palette.SurfaceBorderDark)
+            } else {
+                SurfaceStyle(Color.White, Palette.SurfaceFloatBorderLight, 16f, 16f, Palette.SurfaceBorderLight)
+            }
+        }
+    }
+
     companion object {
         fun of(theme: RevealTheme, dark: Boolean): RevealPalette {
             val card = if (dark) DarkKipatColors else LightKipatColors
@@ -151,10 +193,24 @@ data class RevealPalette(
                 RevealTheme.MONO -> if (dark) Color(0xFFE3E4E8) to Color(0xFF17181C) else Color(0xFF2B2D33) to Color.White
             }
             return if (dark) {
-                RevealPalette(Palette.Scrim, 0.60f, 0.86f, Palette.MistPrimary, Palette.MistPrimary, accent, onAccent, card)
+                RevealPalette(Palette.Scrim, 0.62f, 0.88f, Palette.MistPrimary, Palette.MistPrimary, accent, onAccent, card)
             } else {
-                RevealPalette(Palette.ScrimLight, 0.72f, 0.94f, Palette.InkPrimary, Palette.InkPrimary, accent, onAccent, card)
+                RevealPalette(Palette.ScrimLight, 0.72f, 0.92f, Palette.InkPrimary, Palette.InkPrimary, accent, onAccent, card)
             }
         }
     }
 }
+
+/** One identity-surface material. Dimensions are dp; [border] null means no edge line. */
+@Immutable
+data class SurfaceStyle(
+    val container: Color,
+    val border: Color?,
+    /** Light-mode shadow elevation; dark surfaces separate by tone and edge instead. */
+    val shadowDp: Float,
+    val radiusDp: Float,
+    /** The rule between identity and actions. */
+    val rule: Color,
+    /** STRUCTURAL draws the rule edge to edge; others inset it to the content. */
+    val fullBleedRule: Boolean = false,
+)

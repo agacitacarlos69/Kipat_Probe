@@ -27,6 +27,7 @@ fun Identity.toRevealPayload(source: RevealSource, isDemo: Boolean, authenticity
         isDemo = isDemo,
         primaryCta = RevealPayload.defaultPrimaryCta(source),
         secondaryCta = RevealPayload.defaultSecondaryCta(source),
+        isOrganization = type == com.kipat.probe.model.IdentityType.COMPANY,
     )
 
 fun Connection.toRevealPayload(source: RevealSource = RevealSource.REPLAY): RevealPayload =

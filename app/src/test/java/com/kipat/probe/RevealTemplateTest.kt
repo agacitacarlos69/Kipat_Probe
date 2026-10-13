@@ -83,11 +83,11 @@ class RevealTemplateTest {
     fun timelinesMatchTheTemplateDocs() {
         // design/reveal-templates/*.md — settled times.
         val settled = RevealTemplateId.entries.associateWith { RevealChoreography.forTemplate(it).timeline.totalDuration }
-        assertEquals(1220, settled[RevealTemplateId.CONTACT_RIPPLE])
-        assertEquals(1400, settled[RevealTemplateId.PRECISION_ORBIT])
-        assertEquals(1400, settled[RevealTemplateId.LINE_ASSEMBLY])
-        assertEquals(1240, settled[RevealTemplateId.APERTURE])
-        assertEquals(1200, settled[RevealTemplateId.SPATIAL_CARD])
+        assertEquals(900, settled[RevealTemplateId.CONTACT_RIPPLE])
+        assertEquals(1160, settled[RevealTemplateId.PRECISION_ORBIT])
+        assertEquals(1200, settled[RevealTemplateId.LINE_ASSEMBLY])
+        assertEquals(1080, settled[RevealTemplateId.APERTURE])
+        assertEquals(700, settled[RevealTemplateId.SPATIAL_CARD])
         assertEquals(620, settled[RevealTemplateId.MINIMAL_FADE])
         // Every template settles faster than the retired Signature (1550 ms).
         assertTrue(settled.values.all { it < 1550 })
@@ -146,7 +146,8 @@ class RevealTemplateTest {
         RevealTemplateId.entries.forEach { t ->
             val tl = RevealChoreography.forTemplate(t).timeline
             assertEquals(0f, RevealEngine.frameAt(0, tl).name, 0f)
-            assertFalse(RevealEngine.frameAt(tl.totalDuration - 50L, tl).isComplete)
+            assertFalse(RevealEngine.frameAt(tl.contentSettledAt - 50L, tl).isComplete)
+            assertTrue("$t: the clock never stops before the primitive is done", tl.totalDuration >= tl.primitiveEndMs)
             val end = RevealEngine.frameAt(tl.totalDuration.toLong(), tl)
             assertTrue(end.isComplete)
             assertEquals(1f, end.surface, 0f)
