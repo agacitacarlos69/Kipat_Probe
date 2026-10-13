@@ -42,10 +42,6 @@ android {
 dependencies {
     implementation(libs.activity.ktx)
     implementation(libs.activity.compose)
-    // Legacy View-based probe UI (removed once the Compose shell has fully replaced it).
-    implementation(libs.appcompat)
-    implementation(libs.constraintlayout)
-    implementation(libs.material)
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
