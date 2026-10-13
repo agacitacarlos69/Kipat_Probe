@@ -22,7 +22,7 @@ data class Connection(
     val source: ConnectionSource,
     val connectedAtMillis: Long,
     val pinned: Boolean = false,
-    val revealTemplate: RevealTemplateId = RevealTemplateId.SIGNATURE_DRIP,
+    val revealTemplate: RevealTemplateId = RevealTemplateId.DEFAULT,
     val revealTheme: RevealTheme = RevealTheme.NIGHT,
     val isDemo: Boolean = true,
 )

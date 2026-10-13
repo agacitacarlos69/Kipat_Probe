@@ -172,7 +172,7 @@ fun DeveloperToolsScreen(writer: NfcWriteController, onBack: () -> Unit) {
             }
             timings.forEach { t ->
                 Text(
-                    "${t.source.wireId}: launch→create ${t.launchToCreateMs?.let { "${it}ms" } ?: "n/a"}, first frame +${t.createToFirstFrameMs ?: "?"}ms, complete +${t.createToCompleteMs ?: "?"}ms, ${relativeTime(t.atMillis)}",
+                    "${t.source.wireId}: launch→create ${t.launchToCreateMs?.let { "${it}ms" } ?: "n/a"}, first frame +${t.createToFirstFrameMs ?: "?"}ms, identity +${t.createToIdentityMs ?: "?"}ms, complete +${t.createToCompleteMs ?: "?"}ms, ${relativeTime(t.atMillis)}",
                     style = mono,
                     color = Kipat.colors.textSecondary,
                     modifier = Modifier.padding(horizontal = KipatSpacing.gutter, vertical = KipatSpacing.s4),

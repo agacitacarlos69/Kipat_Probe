@@ -42,8 +42,9 @@ internal object Palette {
     val WarningDark = Color(0xFFE0A645)
     val RevokedDark = Color(0xFFF2766B)
 
-    /** Reveal scrim over the previous app. Always graphite, whatever the system theme. */
+    /** Reveal scrim over the previous app: graphite in dark theme, paper in light theme. */
     val Scrim = Color(0xFF0E0F12)
+    val ScrimLight = PaperBackground
 }
 
 /** Theme-independent colours: QR codes stay dark-on-white in every theme so all scanners read them. */
@@ -121,15 +122,21 @@ internal val DarkKipatColors = KipatColors(
 )
 
 /**
- * Reveal colours. The card follows the system theme (opaque, for legibility over any app); the
- * scrim is always graphite; the accent (contact ring, edge trace, Connect) comes from the
- * person's chosen Reveal accent.
+ * Reveal colours. Everything follows the system theme: a paper scrim with graphite ink in light,
+ * a graphite scrim with mist ink in dark (design/reveal-templates/). The card is opaque for
+ * legibility over any app. The accent comes from the person's chosen Reveal accent and appears only
+ * at completion (orbit ring, contact mark) and on Connect.
  */
 @Immutable
 data class RevealPalette(
     val scrim: Color,
-    /** Text placed directly on the scrim (e.g. the preview label); ≥ 7:1 on the 55% scrim over white. */
+    /** Scrim opacity on the first frame and once the card has resolved. */
+    val scrimBase: Float,
+    val scrimPeak: Float,
+    /** Text placed directly on the scrim (the preview label). */
     val onScrim: Color,
+    /** Template primitives: arcs, rings, lines, blades. One ink, never a gradient. */
+    val ink: Color,
     val accent: Color,
     val onAccent: Color,
     val card: KipatColors,
@@ -143,7 +150,11 @@ data class RevealPalette(
                 RevealTheme.EMBER -> if (dark) Color(0xFFF0B07A) to Color(0xFF2E1400) else Color(0xFF9C4A0B) to Color.White
                 RevealTheme.MONO -> if (dark) Color(0xFFE3E4E8) to Color(0xFF17181C) else Color(0xFF2B2D33) to Color.White
             }
-            return RevealPalette(Palette.Scrim, Palette.MistPrimary, accent, onAccent, card)
+            return if (dark) {
+                RevealPalette(Palette.Scrim, 0.60f, 0.86f, Palette.MistPrimary, Palette.MistPrimary, accent, onAccent, card)
+            } else {
+                RevealPalette(Palette.ScrimLight, 0.72f, 0.94f, Palette.InkPrimary, Palette.InkPrimary, accent, onAccent, card)
+            }
         }
     }
 }

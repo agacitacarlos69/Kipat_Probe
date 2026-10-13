@@ -1,52 +1,64 @@
 package com.kipat.probe.reveal
 
-/** How completely a template is implemented in the native runtime today. */
-enum class TemplateSupport(val label: String) {
-    /** Dedicated choreography tuned for this template. */
-    FULL("Full"),
-    /** Runs on shared primitives with template-specific parameters. */
-    PARAMETERIZED("Preview"),
-}
-
 /**
- * The initial Reveal catalog from the engineering spec. All ten are modelled; three are fully
- * choreographed and the rest are parameterisations of the same shared engine primitives.
+ * The Reveal template family (design/reveal-templates/). Six interpretations of one identity
+ * card: they share the payload, layout and actions and differ only in entrance choreography.
+ *
+ * [wireId]s are written to cards and links (`t=` in the tag URI), so they are stable and short.
  */
 enum class RevealTemplateId(
     val wireId: String,
     val label: String,
+    /** One line for the picker: the template's character, not its mechanics. */
     val description: String,
-    val support: TemplateSupport,
+    /** Reserved for billing (see [com.kipat.probe.model.Entitlement]); nothing is gated today. */
     val requiresPlus: Boolean = false,
 ) {
-    SIGNATURE_DRIP("drip", "Signature", "A contact ring, then a line traces your card as it appears", TemplateSupport.FULL),
-    PARTICLE_BLOOM("particle-bloom", "Particle Bloom", "Dots spread out and settle around your card", TemplateSupport.FULL),
-    RIPPLE("ripple", "Ripple", "Concentric rings from the tap point", TemplateSupport.PARAMETERIZED),
-    ORBIT("orbit", "Orbit", "Light orbits the card before it lands", TemplateSupport.PARAMETERIZED, requiresPlus = true),
-    SOFT_GLOW("soft-glow", "Soft Glow", "A quiet bloom of light", TemplateSupport.PARAMETERIZED),
-    LIQUID_LOGO("liquid-logo", "Liquid Logo", "Your mark swells into place", TemplateSupport.PARAMETERIZED, requiresPlus = true),
-    LINE_TRACE("line-trace", "Line Trace", "A single line traces the card outline", TemplateSupport.PARAMETERIZED),
-    MINIMAL_FADE("minimal-fade", "Minimal", "A quick, quiet fade", TemplateSupport.FULL),
-    PIXEL_BUILD("pixel-build", "Pixel Build", "The card assembles from a soft grid", TemplateSupport.PARAMETERIZED, requiresPlus = true),
-    CONSTELLATION("constellation", "Constellation", "Points connect into your card", TemplateSupport.PARAMETERIZED, requiresPlus = true);
+    CONTACT_RIPPLE("ripple", "Contact Ripple", "Subtle and tactile"),
+    PRECISION_ORBIT("orbit", "Precision Orbit", "Measured, geometric"),
+    LINE_ASSEMBLY("lines", "Line Assembly", "Architectural precision"),
+    APERTURE("aperture", "Aperture", "Focused and technical"),
+    SPATIAL_CARD("spatial", "Spatial Card", "Subtle physical depth"),
+    MINIMAL_FADE("minimal-fade", "Minimal Fade", "Quiet and immediate");
 
     companion object {
-        val DEFAULT = SIGNATURE_DRIP
+        /** Selected in design/reveal-templates/final-scorecard.md. */
+        val DEFAULT = CONTACT_RIPPLE
 
-        /** Unknown or missing template IDs fall back to the signature Reveal, never crash. */
-        fun fromWireId(value: String?): RevealTemplateId {
+        /** Fallback when the device or the person asks for less motion or power. */
+        val LOW_POWER = MINIMAL_FADE
+
+        /**
+         * IDs from the retired v1/v2 catalog that may still be on written cards. They map to the
+         * closest current template, or to the default when nothing is close.
+         */
+        val LEGACY_ALIASES: Map<String, RevealTemplateId> = mapOf(
+            "drip" to DEFAULT,
+            "line-trace" to LINE_ASSEMBLY,
+            "fade" to MINIMAL_FADE,
+            "particle-bloom" to DEFAULT,
+            "soft-glow" to DEFAULT,
+            "liquid-logo" to DEFAULT,
+            "pixel-build" to DEFAULT,
+            "constellation" to DEFAULT,
+        )
+
+        private fun lookup(value: String?): RevealTemplateId? {
             val v = value?.trim().orEmpty()
-            return entries.firstOrNull { it.wireId.equals(v, ignoreCase = true) || it.name.equals(v, ignoreCase = true) } ?: DEFAULT
+            if (v.isEmpty()) return null
+            return entries.firstOrNull { it.wireId.equals(v, ignoreCase = true) || it.name.equals(v, ignoreCase = true) }
+                ?: LEGACY_ALIASES[v.lowercase()]
         }
 
-        fun isKnown(value: String?): Boolean {
-            val v = value?.trim().orEmpty()
-            return entries.any { it.wireId.equals(v, ignoreCase = true) || it.name.equals(v, ignoreCase = true) }
-        }
+        /** Unknown or missing template IDs fall back to [DEFAULT], never crash. */
+        fun fromWireId(value: String?): RevealTemplateId = lookup(value) ?: DEFAULT
+
+        /** True for current IDs, enum names and legacy aliases. */
+        fun isKnown(value: String?): Boolean = lookup(value) != null
     }
 }
 
-/** Accent used by a person's Reveal (contact ring, edge trace, Connect). See [com.kipat.probe.ui.theme.RevealPalette]. */
+/** Accent used by a person's Reveal (completion ring, contact mark, Connect). See [com.kipat.probe.ui.theme.RevealPalette]. */
 enum class RevealTheme(val wireId: String, val label: String) {
     // Wire IDs are stable (stored on cards and links); labels describe the accent colour.
     NIGHT("night", "Cobalt"),
@@ -62,66 +74,108 @@ enum class RevealTheme(val wireId: String, val label: String) {
 
 /** Rendering budget chosen per device/accessibility setting. */
 enum class RevealQuality {
-    /** Full particle field and layered glow. */
     HIGH,
-    /** Weak/low-RAM devices: few particles, single glow layer. */
+    /** Low-RAM or ≤ 4 cores: same choreography, no animated shadow. */
     LOW,
-    /** System animations disabled or user asked for reduced motion: fades only. */
+    /** System animations off: each template's reduced-motion equivalent, readable immediately. */
     REDUCED_MOTION,
 }
 
-enum class ParticleMotion { NONE, CONVERGE, BLOOM, ORBIT, GRID, CONSTELLATION }
+/** The one geometric idea a template is built on. Drawn by [com.kipat.probe.reveal.effects.RevealEffects]. */
+enum class EntryPrimitive {
+    /** Minimal Fade: no primitive at all. */
+    NONE,
+    /** Contact Ripple: contact dot and two thin rings from the card's top centre (under the card). */
+    RIPPLE,
+    /** Precision Orbit: two symmetric arcs close into a ring around the avatar (over the card). */
+    ORBIT,
+    /** Line Assembly: drafting lines set out the card's edges (under the card). */
+    LINES,
+    /** Aperture: a six-blade flat iris opens on the avatar (over the card). */
+    APERTURE,
+    /** Spatial Card: the card's edge, visible only while tilted (inside the card's layer). */
+    EDGE,
+}
 
-enum class SurfaceEntrance { RISE, FADE, TRACE, LIQUID }
+/** How the card surface itself arrives. */
+enum class SurfaceEntry {
+    /** Opacity + small rise. */
+    FADE_RISE,
+    /** Uncovered inside a circle growing from the contact point. */
+    CIRCULAR_REVEAL,
+    /** Opacity + 0.99 → 1 scale. */
+    FADE_SCALE,
+    /** Opacity only. */
+    FADE,
+    /** Opacity + 6° rotationX settling flat on a spring. */
+    TILT,
+}
+
+enum class NameEntry {
+    FADE,
+    /** Left-to-right clip reveal. */
+    WIPE,
+}
+
+/** What each template becomes when motion is reduced. Every variant settles in 200 ms. */
+enum class ReducedMotion(val description: String) {
+    CROSSFADE("Crossfade"),
+    CONTACT_ACKNOWLEDGE("Contact dot fades in and out once while the card crossfades"),
+    STATIC_RING("Settled ring fades in with the card"),
+    PERIMETER_FADE("All four lines fade out as the card fades in"),
+    SCALE_FADE("Scale 0.98 to 1 with opacity"),
+}
 
 /**
- * Parameters for the shared Reveal engine. Templates differ by configuration, not by
- * separate animation implementations.
+ * A template's complete choreography: one primary motion ([primitive]), how the surface resolves,
+ * how the name enters, and the timeline. Templates differ only here; the renderer is shared.
  */
-data class RevealConfig(
+data class RevealChoreography(
     val template: RevealTemplateId,
     val timeline: RevealTimeline,
-    val rippleRings: Int,
-    val particleCount: Int,
-    val particleMotion: ParticleMotion,
-    val glowStrength: Float,
-    val drip: Boolean,
-    val surfaceEntrance: SurfaceEntrance,
-    /** Strength (0 = off) of the line that traces the card outline from the contact point. */
-    val perimeterTrace: Float = 0f,
-    /** Ripple radius as a fraction of the screen; small = a contact ring, large = template ripples. */
-    val rippleScale: Float = 0.6f,
+    val primitive: EntryPrimitive,
+    val surfaceEntry: SurfaceEntry,
+    val nameEntry: NameEntry,
+    val reducedMotion: ReducedMotion,
+    /** True when this is the reduced-motion variant ([reducedMotion] is what plays). */
+    val reduced: Boolean = false,
+    /** Light-mode card shadow grows during the entrance (skipped on low-power devices). */
+    val animatedShadow: Boolean = true,
 ) {
     companion object {
-        const val MAX_PARTICLES = 56
-        const val LOW_QUALITY_PARTICLES = 12
+        fun forTemplate(template: RevealTemplateId, quality: RevealQuality = RevealQuality.HIGH): RevealChoreography {
+            val full = when (template) {
+                RevealTemplateId.CONTACT_RIPPLE -> RevealChoreography(template, RevealTimeline.CONTACT_RIPPLE, EntryPrimitive.RIPPLE, SurfaceEntry.CIRCULAR_REVEAL, NameEntry.FADE, ReducedMotion.CONTACT_ACKNOWLEDGE)
+                RevealTemplateId.PRECISION_ORBIT -> RevealChoreography(template, RevealTimeline.PRECISION_ORBIT, EntryPrimitive.ORBIT, SurfaceEntry.FADE_SCALE, NameEntry.WIPE, ReducedMotion.STATIC_RING)
+                RevealTemplateId.LINE_ASSEMBLY -> RevealChoreography(template, RevealTimeline.LINE_ASSEMBLY, EntryPrimitive.LINES, SurfaceEntry.FADE, NameEntry.WIPE, ReducedMotion.PERIMETER_FADE)
+                RevealTemplateId.APERTURE -> RevealChoreography(template, RevealTimeline.APERTURE, EntryPrimitive.APERTURE, SurfaceEntry.FADE, NameEntry.FADE, ReducedMotion.CROSSFADE)
+                RevealTemplateId.SPATIAL_CARD -> RevealChoreography(template, RevealTimeline.SPATIAL_CARD, EntryPrimitive.EDGE, SurfaceEntry.TILT, NameEntry.FADE, ReducedMotion.SCALE_FADE)
+                RevealTemplateId.MINIMAL_FADE -> RevealChoreography(template, RevealTimeline.MINIMAL_FADE, EntryPrimitive.NONE, SurfaceEntry.FADE_RISE, NameEntry.FADE, ReducedMotion.CROSSFADE)
+            }
+            return when (quality) {
+                RevealQuality.HIGH -> full
+                RevealQuality.LOW -> full.copy(animatedShadow = false)
+                RevealQuality.REDUCED_MOTION -> full.reducedVariant()
+            }
+        }
 
-        fun forTemplate(template: RevealTemplateId, quality: RevealQuality = RevealQuality.HIGH): RevealConfig {
-            if (quality == RevealQuality.REDUCED_MOTION) {
-                return RevealConfig(template, RevealTimeline.REDUCED, 0, 0, ParticleMotion.NONE, 0.25f, false, SurfaceEntrance.FADE)
+        private fun RevealChoreography.reducedVariant(): RevealChoreography {
+            // Primitives that survive reduced motion do so statically; nothing moves or rotates.
+            val primitive = when (reducedMotion) {
+                ReducedMotion.CONTACT_ACKNOWLEDGE -> EntryPrimitive.RIPPLE
+                ReducedMotion.STATIC_RING -> EntryPrimitive.ORBIT
+                ReducedMotion.PERIMETER_FADE -> EntryPrimitive.LINES
+                ReducedMotion.CROSSFADE, ReducedMotion.SCALE_FADE -> EntryPrimitive.NONE
             }
-            val base = when (template) {
-                // Calm signature: one contact ring + a precise edge trace. No particles, glow or drip.
-                RevealTemplateId.SIGNATURE_DRIP -> RevealConfig(template, RevealTimeline.SIGNATURE, 1, 0, ParticleMotion.NONE, 0f, false, SurfaceEntrance.RISE, perimeterTrace = 1f, rippleScale = 0.12f)
-                RevealTemplateId.PARTICLE_BLOOM -> RevealConfig(template, RevealTimeline.SIGNATURE, 1, MAX_PARTICLES, ParticleMotion.BLOOM, 0.85f, false, SurfaceEntrance.RISE)
-                RevealTemplateId.MINIMAL_FADE -> RevealConfig(template, RevealTimeline.MINIMAL, 0, 0, ParticleMotion.NONE, 0.35f, false, SurfaceEntrance.FADE)
-                RevealTemplateId.RIPPLE -> RevealConfig(template, RevealTimeline.SIGNATURE, 3, 0, ParticleMotion.NONE, 0.7f, false, SurfaceEntrance.RISE)
-                RevealTemplateId.ORBIT -> RevealConfig(template, RevealTimeline.SIGNATURE, 1, 24, ParticleMotion.ORBIT, 0.8f, false, SurfaceEntrance.RISE)
-                RevealTemplateId.SOFT_GLOW -> RevealConfig(template, RevealTimeline.SIGNATURE, 0, 0, ParticleMotion.NONE, 1f, false, SurfaceEntrance.FADE)
-                RevealTemplateId.LIQUID_LOGO -> RevealConfig(template, RevealTimeline.SIGNATURE, 1, 0, ParticleMotion.NONE, 0.8f, true, SurfaceEntrance.LIQUID)
-                RevealTemplateId.LINE_TRACE -> RevealConfig(template, RevealTimeline.SIGNATURE, 0, 0, ParticleMotion.NONE, 0.5f, false, SurfaceEntrance.TRACE, perimeterTrace = 0.9f)
-                RevealTemplateId.PIXEL_BUILD -> RevealConfig(template, RevealTimeline.SIGNATURE, 0, 36, ParticleMotion.GRID, 0.5f, false, SurfaceEntrance.FADE)
-                RevealTemplateId.CONSTELLATION -> RevealConfig(template, RevealTimeline.SIGNATURE, 0, 18, ParticleMotion.CONSTELLATION, 0.6f, false, SurfaceEntrance.RISE)
-            }
-            return if (quality == RevealQuality.LOW) {
-                base.copy(
-                    particleCount = base.particleCount.coerceAtMost(LOW_QUALITY_PARTICLES),
-                    rippleRings = base.rippleRings.coerceAtMost(1),
-                    glowStrength = base.glowStrength * 0.7f,
-                )
-            } else {
-                base
-            }
+            val surface = if (reducedMotion == ReducedMotion.SCALE_FADE) SurfaceEntry.FADE_SCALE else SurfaceEntry.FADE
+            return copy(
+                timeline = RevealTimeline.REDUCED,
+                primitive = primitive,
+                surfaceEntry = surface,
+                nameEntry = NameEntry.FADE,
+                reduced = true,
+                animatedShadow = false,
+            )
         }
     }
 }

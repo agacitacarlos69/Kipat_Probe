@@ -52,7 +52,7 @@ class RevealPayloadTest {
         )
         val d = RevealPayloadCodec.decode { bad[it] }
         assertEquals("Eve", d.payload.displayName)
-        assertEquals(RevealTemplateId.SIGNATURE_DRIP, d.payload.template)
+        assertEquals(RevealTemplateId.DEFAULT, d.payload.template)
         assertEquals(AuthenticityState.UNKNOWN, d.payload.authenticity)
         assertNull(d.payload.cardId)
         assertNull(d.payload.avatarUri)
@@ -81,7 +81,7 @@ class RevealPayloadTest {
         val t = NfcIntentParser.parse("https://kipat.app/c/KPT-DEMO-0102")!!
         val p = RevealResolver.resolve(t, SampleData.identity, true, connections)
         assertEquals("Alyssa Ramos", p.displayName)
-        assertEquals(RevealTemplateId.PARTICLE_BLOOM, p.template)
+        assertEquals(RevealTemplateId.PRECISION_ORBIT, p.template)
     }
 
     @Test

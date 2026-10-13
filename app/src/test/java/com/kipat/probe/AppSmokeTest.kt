@@ -5,6 +5,8 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.nfc.NfcAdapter
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -13,6 +15,8 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
+import com.kipat.probe.data.KipatRepository
+import com.kipat.probe.reveal.RevealTemplateId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -83,10 +87,10 @@ class AppSmokeTest {
             .setClass(context, TapExperienceActivity::class.java)
         compose.mainClock.autoAdvance = false
         ActivityScenario.launch<TapExperienceActivity>(intent).use {
-            // Step through the choreography with a manual clock: ripple → particles → card → content.
+            // Step through the default choreography with a manual clock.
             listOf(120L, 400L, 600L, 900L, 1_150L).fold(0L) { prev, at ->
                 compose.mainClock.advanceTimeBy(at - prev)
-                screenshot("reveal-signature-${at}ms")
+                screenshot("reveal-default-${at}ms")
                 at
             }
             compose.mainClock.advanceTimeBy(2_000)
@@ -95,7 +99,7 @@ class AppSmokeTest {
             compose.onNodeWithContentDescription("Authenticity: Verified card. Sample data", substring = true).assertExists()
             compose.onNodeWithText("Connect").assertExists()
             compose.onNodeWithText("Save contact").assertExists()
-            screenshot("reveal-signature-settled")
+            screenshot("reveal-default-settled")
         }
     }
 
@@ -150,6 +154,42 @@ class AppSmokeTest {
 
             compose.onNodeWithText("Home", useUnmergedTree = true).performClick()
             compose.onNodeWithText("Vash Puno").assertExists()
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h891dp-notnight-xxhdpi")
+    fun revealStylePickerPreviewsBeforeApplying() {
+        val original = KipatRepository.identity.value
+        try {
+            ActivityScenario.launch(MainActivity::class.java).use {
+                compose.onNodeWithText("Profile", useUnmergedTree = true).performClick()
+                compose.onNodeWithText("Reveal style").performClick()
+                compose.onNodeWithText("Precision Orbit").assertExists()
+                compose.onNodeWithText("Minimal Fade").assertExists()
+                compose.onNodeWithText("Applied").assertIsNotEnabled()
+                compose.onNodeWithText("Aperture").performClick()
+                // Selecting is not applying: others still see the old style.
+                assertEquals(original.revealTemplate, KipatRepository.identity.value.revealTemplate)
+                screenshot("light-reveal-style")
+                compose.onNodeWithText("Apply").assertIsEnabled().performClick()
+                assertEquals(RevealTemplateId.APERTURE, KipatRepository.identity.value.revealTemplate)
+                compose.onNodeWithText("Applied").assertIsNotEnabled()
+            }
+        } finally {
+            KipatRepository.publishIdentity(original)
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h891dp-notnight-xxhdpi", fontScale = 1.3f)
+    fun revealStylePickerWorksAtLargeFontScale() {
+        ActivityScenario.launch(MainActivity::class.java).use {
+            compose.onNodeWithText("Profile", useUnmergedTree = true).performClick()
+            compose.onNodeWithText("Reveal style").performClick()
+            compose.onNodeWithText("Architectural precision").assertExists()
+            compose.onNodeWithText("Preview").assertExists()
+            screenshot("light-reveal-style-font130")
         }
     }
 

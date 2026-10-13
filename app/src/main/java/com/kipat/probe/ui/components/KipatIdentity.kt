@@ -117,7 +117,7 @@ private fun Modifier.fadeRise(rise: Dp = 6.dp, progress: () -> Float) = graphics
     translationY = (1f - p) * rise.toPx()
 }
 
-/** Left-to-right clip reveal (adopted from the Higgsfield v2 motion reference for the name). */
+/** Left-to-right clip reveal (Precision Orbit, Line Assembly). */
 private fun Modifier.wipe(progress: () -> Float) = drawWithContent {
     val p = progress()
     if (p >= 1f) drawContent() else if (p > 0f) clipRect(right = size.width * p) { this@drawWithContent.drawContent() }
@@ -139,6 +139,8 @@ fun IdentityBlock(
     colors: KipatColors = Kipat.colors,
     avatarSize: Dp = 64.dp,
     slots: () -> IdentitySlots = RevealedSlots,
+    /** Left-to-right clip reveal for the name (templates that build geometry); otherwise a fade. */
+    wipeName: Boolean = false,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     Column(modifier.fillMaxWidth()) {
@@ -168,8 +170,15 @@ fun IdentityBlock(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .semantics { heading() }
-                .graphicsLayer { alpha = (slots().name * 1.6f).coerceAtMost(1f) }
-                .wipe { slots().name },
+                .then(
+                    if (wipeName) {
+                        Modifier
+                            .graphicsLayer { alpha = (slots().name * 1.6f).coerceAtMost(1f) }
+                            .wipe { slots().name }
+                    } else {
+                        Modifier.fadeRise { slots().name }
+                    },
+                ),
         )
         val lines = listOfNotNull(subtitle?.takeIf { it.isNotBlank() }, organization?.takeIf { it.isNotBlank() })
         if (lines.isNotEmpty()) {

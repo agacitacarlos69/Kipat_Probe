@@ -69,6 +69,7 @@ class RevealTrace(private val launchUptime: Long?) {
     var contentSetAt: Long? = null; private set
     var firstFrameAt: Long? = null; private set
     var firstVisualAt: Long? = null; private set
+    var identityReadableAt: Long? = null; private set
     var completeAt: Long? = null; private set
 
     init {
@@ -78,6 +79,7 @@ class RevealTrace(private val launchUptime: Long?) {
     fun contentSet() { contentSetAt = mark("content_set") }
     fun firstFrame() { if (firstFrameAt == null) firstFrameAt = mark("first_frame") }
     fun firstVisual() { if (firstVisualAt == null) firstVisualAt = mark("first_reveal_visual") }
+    fun identityReadable() { if (identityReadableAt == null) identityReadableAt = mark("identity_readable") }
     fun complete() { if (completeAt == null) completeAt = mark("reveal_complete") }
 
     val launchToCreate: Long? get() = launchUptime?.let { createdAt - it }

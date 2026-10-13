@@ -23,10 +23,10 @@ class NfcIntentParserTest {
 
     @Test
     fun debugLinkCarriesHintsAndAuthenticityOverride() {
-        val t = NfcIntentParser.parse("kipatprobe://tap/KPT-1?n=Sam%20Reyes&s=Designer&t=particle-bloom&a=revoked")!!
+        val t = NfcIntentParser.parse("kipatprobe://tap/KPT-1?n=Sam%20Reyes&s=Designer&t=aperture&a=revoked")!!
         assertEquals("Sam Reyes", t.hints.name)
         assertEquals("Designer", t.hints.subtitle)
-        assertEquals(RevealTemplateId.PARTICLE_BLOOM, t.hints.template)
+        assertEquals(RevealTemplateId.APERTURE, t.hints.template)
         assertEquals(AuthenticityState.REVOKED, t.hints.debugAuthenticity)
     }
 
@@ -82,12 +82,21 @@ class NfcIntentParserTest {
 
     @Test
     fun tagUriRoundTripsThroughParser() {
-        val uri = KipatTagUri.build("KPT-DEMO-0001", "Vash Puno", RevealTemplateId.SIGNATURE_DRIP)
-        assertEquals("https://kipat.app/c/KPT-DEMO-0001?n=Vash+Puno&t=drip", uri)
+        val uri = KipatTagUri.build("KPT-DEMO-0001", "Vash Puno", RevealTemplateId.PRECISION_ORBIT)
+        assertEquals("https://kipat.app/c/KPT-DEMO-0001?n=Vash+Puno&t=orbit", uri)
         val t = NfcIntentParser.parse(uri)!!
         assertEquals("KPT-DEMO-0001", t.cardId)
         assertEquals("Vash Puno", t.hints.name)
-        assertEquals(RevealTemplateId.SIGNATURE_DRIP, t.hints.template)
+        assertEquals(RevealTemplateId.PRECISION_ORBIT, t.hints.template)
+    }
+
+    @Test
+    fun legacyTemplateHintOnAnOldCardStillResolves() {
+        // Cards written before the template family carry t=drip; they get the default, not an error.
+        val t = NfcIntentParser.parse("https://kipat.app/c/KPT-OLD-1?t=drip")!!
+        assertEquals(RevealTemplateId.DEFAULT, t.hints.template)
+        val unknown = NfcIntentParser.parse("https://kipat.app/c/KPT-OLD-2?t=warp-drive")!!
+        assertEquals(null, unknown.hints.template)
     }
 
     @Test

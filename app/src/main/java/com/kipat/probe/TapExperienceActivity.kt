@@ -55,9 +55,10 @@ class TapExperienceActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         trace = RevealTrace(intent?.getLongExtra(RevealLauncher.EXTRA_LAUNCH_UPTIME, -1L)?.takeIf { it > 0 })
+        // The scrim follows the system theme (paper in light, graphite in dark), so do the bar icons.
         enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
         )
         super.onCreate(savedInstanceState)
 
@@ -169,6 +170,7 @@ class TapExperienceActivity : ComponentActivity() {
                 trace.firstVisual()
                 if (quality != RevealQuality.REDUCED_MOTION) KipatHaptics.revealStart(view)
             }
+            RevealMilestone.IDENTITY_READABLE -> trace.identityReadable()
             RevealMilestone.VERIFIED -> if (payload.authenticity == AuthenticityState.AUTHENTIC) KipatHaptics.verified(view)
             RevealMilestone.COMPLETE -> {
                 trace.complete()
@@ -177,6 +179,7 @@ class TapExperienceActivity : ComponentActivity() {
                         source = payload.source,
                         launchToCreateMs = trace.launchToCreate,
                         createToFirstFrameMs = trace.sinceCreate(trace.firstFrameAt),
+                        createToIdentityMs = trace.sinceCreate(trace.identityReadableAt),
                         createToCompleteMs = trace.sinceCreate(trace.completeAt),
                         atMillis = System.currentTimeMillis(),
                     ),

@@ -18,6 +18,8 @@ data class RevealTiming(
     val source: RevealSource,
     val launchToCreateMs: Long?,
     val createToFirstFrameMs: Long?,
+    /** Name, role and organisation fully shown. */
+    val createToIdentityMs: Long?,
     val createToCompleteMs: Long?,
     val atMillis: Long,
 )
