@@ -17,7 +17,9 @@ import androidx.compose.runtime.setValue
 import com.kipat.probe.data.KipatRepository
 import com.kipat.probe.data.RevealResolver
 import com.kipat.probe.data.RevealTiming
+import com.kipat.probe.data.ContactSaver
 import com.kipat.probe.navigation.KipatDestination
+import com.kipat.probe.navigation.KipatRoutes
 import com.kipat.probe.nfc.NfcIntentParser
 import com.kipat.probe.nfc.NfcIntents
 import com.kipat.probe.reveal.KipatHaptics
@@ -64,19 +66,21 @@ class TapExperienceActivity : ComponentActivity() {
         runKey = savedInstanceState?.getInt(STATE_RUN_KEY) ?: 0
         quality = RevealQualityPolicy.choose(this)
         if (savedInstanceState == null) {
-            KipatRepository.recordTap(payload)
+            // Only real taps/links are recorded; in-app previews and replays are not new taps.
+            if (!hasTrustedPayload(intent)) KipatRepository.recordTap(payload)
             rememberTap(payload)
         }
 
         setContent {
-            KipatTheme(darkTheme = true) {
+            KipatTheme {
                 RevealScreen(
                     payload = payload,
                     quality = quality,
                     runKey = runKey,
                     connected = connected,
-                    onPrimary = ::onPrimary,
-                    onSecondary = ::onSecondary,
+                    onConnect = ::onConnect,
+                    onSaveContact = ::onSaveContact,
+                    onOpenProfile = ::onOpenProfile,
                     onDismiss = ::finish,
                     onMilestone = ::onMilestone,
                 )
@@ -98,7 +102,7 @@ class TapExperienceActivity : ComponentActivity() {
         rememberTap(next)
         payload = next
         connected = KipatRepository.isConnected(next.cardId)
-        KipatRepository.recordTap(next)
+        if (!hasTrustedPayload(intent)) KipatRepository.recordTap(next)
         trace = RevealTrace(intent.getLongExtra(RevealLauncher.EXTRA_LAUNCH_UPTIME, -1L).takeIf { it > 0 })
         runKey++
     }
@@ -181,22 +185,37 @@ class TapExperienceActivity : ComponentActivity() {
         }
     }
 
-    private fun onPrimary() {
+    private fun onConnect() {
+        if (payload.source == RevealSource.PREVIEW) {
+            // Preview shows the recipient's view; acting on your own card just closes it.
+            finish()
+            return
+        }
         if (payload.canConnect && !connected) {
             KipatRepository.connect(payload)
             connected = true
             KipatHaptics.connect(window.decorView)
-        } else {
-            finish()
         }
     }
 
-    private fun onSecondary() {
-        val destination = if (payload.source == RevealSource.PREVIEW) KipatDestination.Profile else KipatDestination.Connections
+    private fun onSaveContact() {
+        if (payload.source == RevealSource.PREVIEW) {
+            finish()
+            return
+        }
+        ContactSaver.save(this, payload.displayName, payload.subtitle, payload.organization, payload.cardId)
+    }
+
+    private fun onOpenProfile() {
+        val destination = when {
+            payload.source == RevealSource.PREVIEW -> KipatDestination.Profile.route
+            else -> KipatRepository.connections.value.firstOrNull { it.cardId == payload.cardId }
+                ?.let { KipatRoutes.person(it.id) } ?: KipatDestination.Connections.route
+        }
         startActivity(
             Intent(this, MainActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                .putExtra(MainActivity.EXTRA_DESTINATION, destination.route),
+                .putExtra(MainActivity.EXTRA_DESTINATION, destination),
         )
         finish()
     }

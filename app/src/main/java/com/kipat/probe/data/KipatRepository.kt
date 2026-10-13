@@ -75,11 +75,13 @@ object KipatRepository {
     /** Records that a Reveal happened. Does NOT create a connection. */
     fun recordTap(payload: RevealPayload) {
         if (payload.source != RevealSource.NFC_TAG && payload.source != RevealSource.DEEP_LINK) return
+        // Tapping your own card (e.g. testing it) is not someone you met.
+        if (payload.cardId != null && payload.cardId == _identity.value.cardId) return
         val tap = RecentTap(
             id = "tap-${now}-${idCounter++}",
             cardId = payload.cardId.orEmpty(),
             displayName = payload.displayName,
-            subtitle = listOfNotNull(payload.subtitle, payload.organization).joinToString(" · "),
+            subtitle = listOfNotNull(payload.subtitle, payload.organization).joinToString(", "),
             authenticity = payload.authenticity,
             atMillis = now,
             savedAsConnection = isConnected(payload.cardId),
@@ -106,6 +108,26 @@ object KipatRepository {
         )
         _connections.update { it + connection }
         _recentTaps.update { taps -> taps.map { if (it.cardId == payload.cardId) it.copy(savedAsConnection = true) else it } }
+        return connection
+    }
+
+    /** "Connect" pressed on an unsaved recent tap (Home). Same rule: only an explicit action connects. */
+    fun connect(tap: RecentTap): Connection {
+        _connections.value.firstOrNull { it.cardId == tap.cardId }?.let { return it }
+        val parts = tap.subtitle.split(" · ", ", ", limit = 2)
+        val connection = Connection(
+            id = "c-${now}-${idCounter++}",
+            cardId = tap.cardId,
+            displayName = tap.displayName,
+            subtitle = parts.getOrNull(0).orEmpty(),
+            organization = parts.getOrNull(1).orEmpty(),
+            authenticity = tap.authenticity,
+            source = ConnectionSource.NFC_CARD,
+            connectedAtMillis = now,
+            isDemo = tap.isDemo,
+        )
+        _connections.update { it + connection }
+        _recentTaps.update { taps -> taps.map { if (it.id == tap.id) it.copy(savedAsConnection = true) else it } }
         return connection
     }
 

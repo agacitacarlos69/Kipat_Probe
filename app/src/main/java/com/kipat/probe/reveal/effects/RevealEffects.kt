@@ -62,12 +62,10 @@ object RevealEffects {
         particles: ParticleField,
         primary: Color,
         secondary: Color,
-        tracePath: Path?,
-        traceMeasure: PathMeasure?,
-        traceSegment: Path?,
+        trace: EdgeTrace?,
     ) {
         if (config.glowStrength > 0f) drawGlow(frame, config, geo, primary, secondary)
-        if (config.rippleRings > 0) drawRipples(frame, config.rippleRings, geo, primary)
+        if (config.rippleRings > 0) drawRipples(frame, config.rippleRings, config.rippleScale, geo, primary)
         if (config.drip) drawDrip(frame, geo, primary)
         when (config.particleMotion) {
             ParticleMotion.NONE -> Unit
@@ -77,8 +75,11 @@ object RevealEffects {
             ParticleMotion.GRID -> drawGrid(frame, geo, config.particleCount, primary)
             ParticleMotion.CONSTELLATION -> drawConstellation(frame, geo, particles, config.particleCount, primary, secondary)
         }
-        if (tracePath != null && traceMeasure != null && traceSegment != null) {
-            drawTrace(frame, config.perimeterTrace, traceMeasure, traceSegment, primary, secondary)
+        if (trace != null && config.perimeterTrace > 0f) {
+            val p = frame.particles.coerceAtLeast(frame.surface)
+            // The line fades as the opaque card takes over the edge.
+            val alpha = config.perimeterTrace * (1f - 0.85f * frame.surface)
+            trace.draw(this, p, primary.copy(alpha = alpha.coerceIn(0f, 1f)), 1.5f * density)
         }
     }
 
@@ -103,15 +104,16 @@ object RevealEffects {
     }
 
     /** Concentric rings expanding from the tap origin. */
-    private fun DrawScope.drawRipples(frame: RevealFrame, rings: Int, geo: RevealGeometry, color: Color) {
+    /** One ring = the contact acknowledgement (small scale); several = the Ripple template. */
+    private fun DrawScope.drawRipples(frame: RevealFrame, rings: Int, scale: Float, geo: RevealGeometry, color: Color) {
         val p = frame.ripple
         if (p <= 0f || p >= 1f) return
         for (i in 0 until rings) {
             val local = ((p - i * 0.18f) / (1f - i * 0.18f)).coerceIn(0f, 1f)
             if (local <= 0f) continue
-            val radius = geo.maxRadius * 0.6f * RevealEngine.easeOutCubic(local)
-            val alpha = (1f - local) * (0.55f - i * 0.15f)
-            drawCircle(color.copy(alpha = alpha.coerceAtLeast(0f)), radius, geo.tapOrigin, style = Stroke(width = (2.5f - i * 0.6f) * density))
+            val radius = geo.maxRadius * scale * RevealEngine.easeOutCubic(local)
+            val alpha = (1f - local) * (0.7f - i * 0.18f)
+            drawCircle(color.copy(alpha = alpha.coerceAtLeast(0f)), radius, geo.tapOrigin, style = Stroke(width = (1.5f - i * 0.25f).coerceAtLeast(1f) * density))
         }
     }
 
@@ -230,25 +232,49 @@ object RevealEffects {
         }
     }
 
-    /**
-     * Light tracing the card outline (Line Trace, and a softer version in Signature). The bright
-     * head is the "sparkle outline" from the Higgsfield reference. Path objects are reused.
-     */
-    private fun DrawScope.drawTrace(frame: RevealFrame, strength: Float, measure: PathMeasure, segment: Path, primary: Color, secondary: Color) {
-        val p = frame.particles.coerceAtLeast(frame.surface)
-        if (p <= 0f || strength <= 0f) return
-        val alpha = strength * (1f - 0.7f * frame.cta)
-        if (alpha <= 0.01f) return
-        segment.reset()
-        val len = measure.length
-        measure.getSegment(0f, len * p, segment, true)
-        drawPath(segment, primary.copy(alpha = alpha), style = Stroke(width = 1.5f * density, cap = StrokeCap.Round))
-        if (p < 1f) {
-            val head = measure.getPosition(len * p)
-            drawCircle(secondary.copy(alpha = alpha), 3.5f * density, head)
-            drawCircle(primary.copy(alpha = alpha), 1.8f * density, head)
+    private fun lerp(a: Offset, b: Offset, t: Float) = Offset(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t)
+}
+
+/**
+ * The Kipat contact line: starts at the card's top centre (where the contact ring lands) and runs
+ * down both sides to meet at the bottom centre. Paths and measures are built once per card size;
+ * drawing reuses one segment path, so there is no per-frame allocation.
+ */
+class EdgeTrace(rect: Rect, cornerRadius: Float) {
+    private val right = PathMeasure()
+    private val left = PathMeasure()
+    private val segment = Path()
+
+    init {
+        val r = cornerRadius.coerceAtMost(minOf(rect.width, rect.height) / 2f)
+        val cx = rect.center.x
+        val rightPath = Path().apply {
+            moveTo(cx, rect.top)
+            lineTo(rect.right - r, rect.top)
+            arcTo(Rect(rect.right - 2 * r, rect.top, rect.right, rect.top + 2 * r), -90f, 90f, false)
+            lineTo(rect.right, rect.bottom - r)
+            arcTo(Rect(rect.right - 2 * r, rect.bottom - 2 * r, rect.right, rect.bottom), 0f, 90f, false)
+            lineTo(cx, rect.bottom)
         }
+        val leftPath = Path().apply {
+            moveTo(cx, rect.top)
+            lineTo(rect.left + r, rect.top)
+            arcTo(Rect(rect.left, rect.top, rect.left + 2 * r, rect.top + 2 * r), -90f, -90f, false)
+            lineTo(rect.left, rect.bottom - r)
+            arcTo(Rect(rect.left, rect.bottom - 2 * r, rect.left + 2 * r, rect.bottom), 180f, -90f, false)
+            lineTo(cx, rect.bottom)
+        }
+        right.setPath(rightPath, false)
+        left.setPath(leftPath, false)
     }
 
-    private fun lerp(a: Offset, b: Offset, t: Float) = Offset(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t)
+    fun draw(scope: DrawScope, progress: Float, color: Color, strokeWidth: Float) {
+        if (progress <= 0f || color.alpha <= 0.01f) return
+        val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+        for (m in arrayOf(right, left)) {
+            segment.reset()
+            m.getSegment(0f, m.length * progress.coerceAtMost(1f), segment, true)
+            scope.drawPath(segment, color, style = stroke)
+        }
+    }
 }

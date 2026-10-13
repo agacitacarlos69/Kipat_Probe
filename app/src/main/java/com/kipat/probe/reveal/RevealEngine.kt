@@ -5,8 +5,8 @@ import kotlin.math.pow
 /**
  * Reveal choreography in milliseconds, measured from the moment the Reveal starts drawing.
  *
- * [SIGNATURE] mirrors the product spec targets (first visual, avatar 600, name 900, role 1200,
- * verification 1500, CTA 1800). These are design targets, not measured device results.
+ * [SIGNATURE] targets identity readable in under a second and everything settled by ~1.55 s
+ * (faster than the original 1.8 s spec). These are design targets, not measured device results.
  */
 data class RevealTimeline(
     val rippleStart: Int,
@@ -27,12 +27,16 @@ data class RevealTimeline(
     val totalDuration: Int get() = ctaStart + stepDuration
 
     companion object {
+        /**
+         * Signature v2 (design/higgsfield/critique-v2.md): contact ring 0–300, edge trace 300–650,
+         * card 500–800, avatar 700, name 850, lines 950, trust 1100, actions 1250, settled 1550.
+         */
         val SIGNATURE = RevealTimeline(
-            rippleStart = 0, rippleDuration = 750, glowPeakAt = 200,
-            particlesStart = 200, particlesDuration = 400,
-            surfaceStart = 600, surfaceDuration = 300,
-            avatarStart = 600, nameStart = 900, roleStart = 1200,
-            verifyStart = 1500, ctaStart = 1800, stepDuration = 280,
+            rippleStart = 0, rippleDuration = 300, glowPeakAt = 150,
+            particlesStart = 300, particlesDuration = 350,
+            surfaceStart = 500, surfaceDuration = 300,
+            avatarStart = 700, nameStart = 850, roleStart = 950,
+            verifyStart = 1100, ctaStart = 1250, stepDuration = 300,
         )
 
         val MINIMAL = RevealTimeline(

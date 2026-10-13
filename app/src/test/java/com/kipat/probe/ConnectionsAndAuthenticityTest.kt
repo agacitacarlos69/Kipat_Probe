@@ -52,8 +52,13 @@ class ConnectionsAndAuthenticityTest {
             val p = state.present(isDemo = false)
             assertEquals(state == AuthenticityState.AUTHENTIC, p.showsCheck)
         }
-        assertTrue(AuthenticityState.AUTHENTIC.present(isDemo = true).label.contains("demo"))
-        assertFalse(AuthenticityState.AUTHENTIC.present(isDemo = false).label.contains("demo"))
+        // Demo data is disclosed on its own line, never merged into the trust label.
+        AuthenticityState.entries.forEach { state ->
+            assertEquals("Sample data", state.present(isDemo = true).demoNote)
+            assertNull(state.present(isDemo = false).demoNote)
+            assertFalse(state.present(isDemo = true).label.contains("demo", ignoreCase = true))
+            assertFalse("no middle-dot meta strings", state.present(isDemo = true).label.contains("·"))
+        }
     }
 
     @Test
@@ -65,6 +70,7 @@ class ConnectionsAndAuthenticityTest {
         assertEquals(StatusTone.PENDING, AuthenticityState.CHECKING.present(false).tone)
         assertEquals(StatusTone.NEUTRAL, AuthenticityState.UNKNOWN.present(false).tone)
         assertFalse(AuthenticityState.UNKNOWN.present(false).label.contains("Verified"))
+        assertEquals("Verified card", AuthenticityState.AUTHENTIC.present(false).label)
     }
 
     @Test

@@ -7,6 +7,8 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -16,14 +18,16 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -32,16 +36,19 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.kipat.probe.nfc.NfcWriteController
-import com.kipat.probe.ui.screens.connections.ConnectionProfileScreen
 import com.kipat.probe.ui.screens.connections.ConnectionsScreen
+import com.kipat.probe.ui.screens.connections.PersonScreen
+import com.kipat.probe.ui.screens.developer.DeveloperToolsScreen
 import com.kipat.probe.ui.screens.home.HomeScreen
+import com.kipat.probe.ui.screens.profile.ProfileEditScreen
 import com.kipat.probe.ui.screens.profile.ProfileScreen
-import com.kipat.probe.ui.screens.touch.TouchScreen
+import com.kipat.probe.ui.screens.profile.RevealStyleScreen
+import com.kipat.probe.ui.screens.share.ShareScreen
 import com.kipat.probe.ui.theme.Kipat
 import com.kipat.probe.ui.theme.KipatMotion
 import kotlinx.coroutines.flow.MutableStateFlow
 
-/** Root of the Kipat app: four-tab shell with state-preserving navigation. */
+/** Root of the Kipat shell: three tabs with saved per-tab state, plus pushed routes. */
 @Composable
 fun KipatApp(
     writer: NfcWriteController,
@@ -50,92 +57,110 @@ fun KipatApp(
     val navController = rememberNavController()
     val snackbar = remember { SnackbarHostState() }
     val pending by pendingDestination.collectAsStateWithLifecycle()
+    val backStack by navController.currentBackStackEntryAsState()
+    val route = backStack?.destination?.route
+    // The bar shows on the three tab roots only; pushed screens get the whole height.
+    val showBar = KipatDestination.fromRoute(route) != null || route == null
 
     LaunchedEffect(pending) {
-        val route = pending ?: return@LaunchedEffect
-        KipatDestination.fromRoute(route)?.let { navController.navigateToTab(it) }
+        val target = pending ?: return@LaunchedEffect
+        when {
+            KipatDestination.fromRoute(target) != null -> navController.navigateToTab(KipatDestination.fromRoute(target)!!)
+            target.startsWith("person/") -> {
+                navController.navigateToTab(KipatDestination.Connections)
+                navController.navigate(target)
+            }
+            target == KipatRoutes.SHARE -> navController.navigate(KipatRoutes.SHARE)
+        }
         pendingDestination.value = null
     }
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Kipat.colors.background,
         contentWindowInsets = WindowInsets(0),
         snackbarHost = { SnackbarHost(snackbar) },
-        bottomBar = { KipatBottomBar(navController) },
+        bottomBar = { if (showBar) KipatNavigationBar(navController, route) },
     ) { padding ->
         NavHost(
             navController = navController,
             startDestination = KipatDestination.Home.route,
-            modifier = Modifier.padding(padding),
-            enterTransition = { fadeIn(tween(KipatMotion.Standard)) },
-            exitTransition = { fadeOut(tween(KipatMotion.Quick)) },
+            modifier = Modifier
+                .padding(padding)
+                .consumeWindowInsets(padding),
+            enterTransition = { fadeIn(tween(KipatMotion.TabFade)) },
+            exitTransition = { fadeOut(tween(KipatMotion.TabFade)) },
         ) {
             composable(KipatDestination.Home.route) {
                 HomeScreen(
+                    onShare = { navController.navigate(KipatRoutes.SHARE) },
                     onOpenConnections = { navController.navigateToTab(KipatDestination.Connections) },
-                    onOpenProfile = { navController.navigateToTab(KipatDestination.Profile) },
-                    onOpenTouch = { navController.navigateToTab(KipatDestination.Touch) },
-                    onOpenConnection = { navController.navigate(KipatRoutes.connectionProfile(it)) },
+                    onOpenPerson = { navController.navigate(KipatRoutes.person(it)) },
                 )
             }
             composable(KipatDestination.Connections.route) {
-                ConnectionsScreen(
-                    snackbar = snackbar,
-                    onOpenProfile = { navController.navigate(KipatRoutes.connectionProfile(it)) },
-                )
-            }
-            composable(KipatDestination.Touch.route) {
-                TouchScreen(writer = writer)
+                ConnectionsScreen(snackbar = snackbar, onOpenPerson = { navController.navigate(KipatRoutes.person(it)) })
             }
             composable(KipatDestination.Profile.route) {
-                ProfileScreen(snackbar = snackbar)
-            }
-            composable(
-                route = KipatRoutes.CONNECTION_PROFILE,
-                arguments = listOf(navArgument(KipatRoutes.CONNECTION_ID_ARG) { type = NavType.StringType }),
-                enterTransition = { slideInHorizontally(tween(KipatMotion.Emphasized, easing = KipatMotion.EaseOut)) { it / 6 } + fadeIn(tween(KipatMotion.Standard)) },
-                popExitTransition = { slideOutHorizontally(tween(KipatMotion.Standard, easing = KipatMotion.EaseIn)) { it / 6 } + fadeOut(tween(KipatMotion.Quick)) },
-            ) { entry ->
-                ConnectionProfileScreen(
-                    connectionId = entry.arguments?.getString(KipatRoutes.CONNECTION_ID_ARG).orEmpty(),
-                    onBack = { navController.popBackStack() },
+                ProfileScreen(
+                    onEdit = { navController.navigate(KipatRoutes.PROFILE_EDIT) },
+                    onRevealStyle = { navController.navigate(KipatRoutes.REVEAL_STYLE) },
+                    onShare = { navController.navigate(KipatRoutes.SHARE) },
+                    onDeveloperTools = { navController.navigate(KipatRoutes.DEVELOPER) },
                 )
             }
+            pushed(KipatRoutes.SHARE) { ShareScreen(onBack = { navController.popBackStack() }) }
+            pushed(
+                KipatRoutes.PERSON,
+                arguments = listOf(navArgument(KipatRoutes.PERSON_ID_ARG) { type = NavType.StringType }),
+            ) { id -> PersonScreen(connectionId = id.orEmpty(), snackbar = snackbar, onBack = { navController.popBackStack() }) }
+            pushed(KipatRoutes.PROFILE_EDIT) { ProfileEditScreen(snackbar = snackbar, onDone = { navController.popBackStack() }) }
+            pushed(KipatRoutes.REVEAL_STYLE) { RevealStyleScreen(onBack = { navController.popBackStack() }) }
+            pushed(KipatRoutes.DEVELOPER) { DeveloperToolsScreen(writer = writer, onBack = { navController.popBackStack() }) }
         }
     }
 }
 
+/** A pushed screen: short horizontal slide + fade (predictive-back friendly; no custom back). */
+private fun NavGraphBuilder.pushed(
+    route: String,
+    arguments: List<androidx.navigation.NamedNavArgument> = emptyList(),
+    content: @Composable (String?) -> Unit,
+) {
+    composable(
+        route = route,
+        arguments = arguments,
+        enterTransition = { slideInHorizontally(tween(KipatMotion.Push, easing = KipatMotion.Decelerate)) { it / 8 } + fadeIn(tween(KipatMotion.Push)) },
+        exitTransition = { fadeOut(tween(KipatMotion.Quick)) },
+        popEnterTransition = { fadeIn(tween(KipatMotion.Quick)) },
+        popExitTransition = { slideOutHorizontally(tween(KipatMotion.Standard, easing = KipatMotion.Accelerate)) { it / 8 } + fadeOut(tween(KipatMotion.Standard)) },
+    ) { entry -> content(entry.arguments?.getString(KipatRoutes.PERSON_ID_ARG)) }
+}
+
 @Composable
-private fun KipatBottomBar(navController: NavHostController) {
-    val backStack by navController.currentBackStackEntryAsState()
-    val current = backStack?.destination
-    NavigationBar(
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        tonalElevation = androidx.compose.ui.unit.Dp.Hairline,
-    ) {
-        KipatDestination.entries.forEach { dest ->
-            val selected = current?.hierarchy?.any { it.route == dest.route } == true ||
-                (dest == KipatDestination.Connections && current?.route == KipatRoutes.CONNECTION_PROFILE)
-            NavigationBarItem(
-                selected = selected,
-                onClick = {
-                    if (selected) {
+private fun KipatNavigationBar(navController: NavHostController, route: String?) {
+    val selectedTab = KipatRoutes.owningTab(route)
+    Column {
+        HorizontalDivider(thickness = 1.dp, color = Kipat.colors.divider)
+        NavigationBar(containerColor = Kipat.colors.background, tonalElevation = 0.dp) {
+            KipatDestination.entries.forEach { dest ->
+                val selected = selectedTab == dest
+                NavigationBarItem(
+                    selected = selected,
+                    onClick = {
                         // Re-tapping the active tab returns to its root instead of re-creating it.
-                        navController.popBackStack(dest.route, inclusive = false)
-                    } else {
-                        navController.navigateToTab(dest)
-                    }
-                },
-                icon = { Icon(if (selected) dest.selectedIcon else dest.icon, contentDescription = null) },
-                label = { Text(dest.label, style = MaterialTheme.typography.labelMedium) },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = Kipat.colors.accent,
-                    selectedTextColor = Kipat.colors.textPrimary,
-                    indicatorColor = Kipat.colors.accent.copy(alpha = 0.12f),
-                    unselectedIconColor = Kipat.colors.textTertiary,
-                    unselectedTextColor = Kipat.colors.textTertiary,
-                ),
-            )
+                        if (selected) navController.popBackStack(dest.route, inclusive = false) else navController.navigateToTab(dest)
+                    },
+                    icon = { Icon(if (selected) dest.selectedIcon else dest.icon, contentDescription = null) },
+                    label = { Text(dest.label, style = MaterialTheme.typography.labelMedium) },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = Kipat.colors.accent,
+                        selectedTextColor = Kipat.colors.textPrimary,
+                        indicatorColor = Kipat.colors.accentContainer,
+                        unselectedIconColor = Kipat.colors.textSecondary,
+                        unselectedTextColor = Kipat.colors.textSecondary,
+                    ),
+                )
+            }
         }
     }
 }

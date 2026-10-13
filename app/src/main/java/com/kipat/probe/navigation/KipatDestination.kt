@@ -1,33 +1,43 @@
 package com.kipat.probe.navigation
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Person
 import androidx.compose.ui.graphics.vector.ImageVector
-import com.kipat.probe.ui.components.KipatIcons
+import com.kipat.probe.ui.components.KipatSymbols
 
-/** The four primary tabs, in bottom-bar order. */
+/**
+ * The three top-level places (design/research/navigation-decision.md). Sharing is an action on
+ * Home, not a tab; developer tools live under Profile.
+ */
 enum class KipatDestination(
     val route: String,
     val label: String,
     val icon: ImageVector,
     val selectedIcon: ImageVector,
 ) {
-    Home("home", "Home", Icons.Outlined.Home, Icons.Filled.Home),
-    Connections("connections", "Connections", KipatIcons.Connections, KipatIcons.Connections),
-    Touch("touch", "Touch", KipatIcons.Touch, KipatIcons.Touch),
-    Profile("profile", "Profile", Icons.Outlined.Person, Icons.Filled.Person);
+    Home("home", "Home", KipatSymbols.Home, KipatSymbols.HomeFilled),
+    Connections("connections", "Connections", KipatSymbols.People, KipatSymbols.PeopleFilled),
+    Profile("profile", "Profile", KipatSymbols.Person, KipatSymbols.PersonFilled);
 
     companion object {
         fun fromRoute(route: String?): KipatDestination? = entries.firstOrNull { it.route == route }
     }
 }
 
-/** Secondary routes pushed on top of a tab. */
+/** Routes pushed on top of a tab. */
 object KipatRoutes {
-    const val CONNECTION_ID_ARG = "connectionId"
-    const val CONNECTION_PROFILE = "connection/{$CONNECTION_ID_ARG}"
-    fun connectionProfile(id: String) = "connection/$id"
+    const val SHARE = "share"
+    const val PERSON_ID_ARG = "connectionId"
+    const val PERSON = "person/{$PERSON_ID_ARG}"
+    const val PROFILE_EDIT = "profile/edit"
+    const val REVEAL_STYLE = "profile/reveal-style"
+    const val DEVELOPER = "profile/developer"
+
+    fun person(id: String) = "person/$id"
+
+    /** Which tab a pushed route belongs to, for the selected state of the navigation bar. */
+    fun owningTab(route: String?): KipatDestination? = when (route) {
+        PERSON -> KipatDestination.Connections
+        PROFILE_EDIT, REVEAL_STYLE, DEVELOPER -> KipatDestination.Profile
+        SHARE -> null
+        else -> KipatDestination.fromRoute(route)
+    }
 }

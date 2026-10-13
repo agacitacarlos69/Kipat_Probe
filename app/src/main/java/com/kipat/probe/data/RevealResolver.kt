@@ -47,6 +47,27 @@ fun Connection.toRevealPayload(source: RevealSource = RevealSource.REPLAY): Reve
         secondaryCta = RevealPayload.defaultSecondaryCta(source),
     )
 
+/** Re-opens the Reveal of an earlier tap, still offering Connect (it was a real tap). */
+fun com.kipat.probe.model.RecentTap.toRevealPayload(): RevealPayload {
+    val parts = subtitle.split(", ", limit = 2)
+    return RevealPayload(
+        identityId = null,
+        cardId = cardId.ifBlank { null },
+        displayName = displayName,
+        subtitle = parts.getOrNull(0)?.ifBlank { null },
+        organization = parts.getOrNull(1)?.ifBlank { null },
+        initials = initialsOf(displayName),
+        avatarUri = null,
+        authenticity = authenticity,
+        template = RevealTemplateId.DEFAULT,
+        theme = RevealTheme.NIGHT,
+        source = RevealSource.NFC_TAG,
+        isDemo = isDemo,
+        primaryCta = RevealPayload.defaultPrimaryCta(RevealSource.NFC_TAG),
+        secondaryCta = RevealPayload.defaultSecondaryCta(RevealSource.NFC_TAG),
+    )
+}
+
 /**
  * Turns a parsed tap into something renderable immediately, using only local data.
  * Backend verification (future) updates [RevealPayload.authenticity] after the first frame.

@@ -19,14 +19,14 @@ enum class RevealTemplateId(
     val support: TemplateSupport,
     val requiresPlus: Boolean = false,
 ) {
-    SIGNATURE_DRIP("drip", "Signature · Drip", "A drop of light falls, ripples and resolves into your card", TemplateSupport.FULL),
-    PARTICLE_BLOOM("particle-bloom", "Particle Bloom", "Particles bloom outward and settle into a halo", TemplateSupport.FULL),
+    SIGNATURE_DRIP("drip", "Signature", "A contact ring, then a line traces your card as it appears", TemplateSupport.FULL),
+    PARTICLE_BLOOM("particle-bloom", "Particle Bloom", "Dots spread out and settle around your card", TemplateSupport.FULL),
     RIPPLE("ripple", "Ripple", "Concentric rings from the tap point", TemplateSupport.PARAMETERIZED),
     ORBIT("orbit", "Orbit", "Light orbits the card before it lands", TemplateSupport.PARAMETERIZED, requiresPlus = true),
     SOFT_GLOW("soft-glow", "Soft Glow", "A quiet bloom of light", TemplateSupport.PARAMETERIZED),
     LIQUID_LOGO("liquid-logo", "Liquid Logo", "Your mark swells into place", TemplateSupport.PARAMETERIZED, requiresPlus = true),
     LINE_TRACE("line-trace", "Line Trace", "A single line traces the card outline", TemplateSupport.PARAMETERIZED),
-    MINIMAL_FADE("minimal-fade", "Minimal Fade", "Fast, calm, no particles", TemplateSupport.FULL),
+    MINIMAL_FADE("minimal-fade", "Minimal", "A quick, quiet fade", TemplateSupport.FULL),
     PIXEL_BUILD("pixel-build", "Pixel Build", "The card assembles from a soft grid", TemplateSupport.PARAMETERIZED, requiresPlus = true),
     CONSTELLATION("constellation", "Constellation", "Points connect into your card", TemplateSupport.PARAMETERIZED, requiresPlus = true);
 
@@ -46,12 +46,13 @@ enum class RevealTemplateId(
     }
 }
 
-/** Colour mood for the Reveal. Mapped to concrete colours in [com.kipat.probe.ui.theme.RevealPalette]. */
+/** Accent used by a person's Reveal (contact ring, edge trace, Connect). See [com.kipat.probe.ui.theme.RevealPalette]. */
 enum class RevealTheme(val wireId: String, val label: String) {
-    NIGHT("night", "Night"),
-    AURORA("aurora", "Aurora"),
-    EMBER("ember", "Ember"),
-    MONO("mono", "Mono");
+    // Wire IDs are stable (stored on cards and links); labels describe the accent colour.
+    NIGHT("night", "Cobalt"),
+    AURORA("aurora", "Teal"),
+    EMBER("ember", "Amber"),
+    MONO("mono", "Graphite");
 
     companion object {
         fun fromWireId(value: String?): RevealTheme =
@@ -86,8 +87,10 @@ data class RevealConfig(
     val glowStrength: Float,
     val drip: Boolean,
     val surfaceEntrance: SurfaceEntrance,
-    /** Strength (0 = off) of the light that traces the card outline before the glass fills in. */
+    /** Strength (0 = off) of the line that traces the card outline from the contact point. */
     val perimeterTrace: Float = 0f,
+    /** Ripple radius as a fraction of the screen; small = a contact ring, large = template ripples. */
+    val rippleScale: Float = 0.6f,
 ) {
     companion object {
         const val MAX_PARTICLES = 56
@@ -98,7 +101,8 @@ data class RevealConfig(
                 return RevealConfig(template, RevealTimeline.REDUCED, 0, 0, ParticleMotion.NONE, 0.25f, false, SurfaceEntrance.FADE)
             }
             val base = when (template) {
-                RevealTemplateId.SIGNATURE_DRIP -> RevealConfig(template, RevealTimeline.SIGNATURE, 2, 44, ParticleMotion.CONVERGE, 1f, true, SurfaceEntrance.RISE, perimeterTrace = 0.55f)
+                // Calm signature: one contact ring + a precise edge trace. No particles, glow or drip.
+                RevealTemplateId.SIGNATURE_DRIP -> RevealConfig(template, RevealTimeline.SIGNATURE, 1, 0, ParticleMotion.NONE, 0f, false, SurfaceEntrance.RISE, perimeterTrace = 1f, rippleScale = 0.12f)
                 RevealTemplateId.PARTICLE_BLOOM -> RevealConfig(template, RevealTimeline.SIGNATURE, 1, MAX_PARTICLES, ParticleMotion.BLOOM, 0.85f, false, SurfaceEntrance.RISE)
                 RevealTemplateId.MINIMAL_FADE -> RevealConfig(template, RevealTimeline.MINIMAL, 0, 0, ParticleMotion.NONE, 0.35f, false, SurfaceEntrance.FADE)
                 RevealTemplateId.RIPPLE -> RevealConfig(template, RevealTimeline.SIGNATURE, 3, 0, ParticleMotion.NONE, 0.7f, false, SurfaceEntrance.RISE)

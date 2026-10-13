@@ -5,125 +5,145 @@ import androidx.compose.ui.graphics.Color
 import com.kipat.probe.model.StatusTone
 import com.kipat.probe.reveal.RevealTheme
 
-/** Raw palette. Screens should use [KipatColors] / MaterialTheme roles, not these directly. */
+/**
+ * Quiet Graphite palette. Values and measured contrast are documented in
+ * design/system/foundation.md — change both together.
+ */
 internal object Palette {
-    // Ink (dark neutrals, slightly blue)
-    val Ink950 = Color(0xFF06080D)
-    val Ink900 = Color(0xFF0B0E15)
-    val Ink850 = Color(0xFF10141D)
-    val Ink800 = Color(0xFF161B26)
-    val Ink700 = Color(0xFF212838)
-    val Ink600 = Color(0xFF323B4F)
-    val Ink400 = Color(0xFF6B7489)
-    val Ink300 = Color(0xFF98A1B5)
-    val Ink100 = Color(0xFFE3E7EF)
-    val Ink50 = Color(0xFFF1F3F8)
+    // Light
+    val PaperBackground = Color(0xFFF6F6F4)
+    val PaperSurface = Color(0xFFFFFFFF)
+    val PaperSecondary = Color(0xFFEEEEEB)
+    val PaperDivider = Color(0xFFE2E2DE)
+    val PaperOutline = Color(0xFF8A8D95)
+    val InkPrimary = Color(0xFF17181C)
+    val InkSecondary = Color(0xFF4E525B)
+    val InkTertiary = Color(0xFF6A6E78)
+    val Cobalt = Color(0xFF2747C8)
+    val CobaltContainer = Color(0xFFE5E9FA)
+    val Verified = Color(0xFF16794A)
+    val Warning = Color(0xFF8A5A00)
+    val Revoked = Color(0xFFB42318)
 
-    // Paper (light neutrals)
-    val Paper = Color(0xFFF5F6FA)
-    val PaperRaised = Color(0xFFFFFFFF)
-    val PaperLine = Color(0xFFE2E5ED)
+    // Dark
+    val GraphiteBackground = Color(0xFF131416)
+    val GraphiteSurface = Color(0xFF1A1B1E)
+    val GraphiteSecondary = Color(0xFF212226)
+    val GraphiteElevated = Color(0xFF26272B)
+    val GraphiteDivider = Color(0xFF2B2C30)
+    val GraphiteOutline = Color(0xFF737680)
+    val MistPrimary = Color(0xFFEDEDEF)
+    val MistSecondary = Color(0xFFA9ACB3)
+    val MistTertiary = Color(0xFF8B8F98)
+    val CobaltLight = Color(0xFF9DB0FF)
+    val CobaltDeep = Color(0xFF0F1A45)
+    val CobaltContainerDark = Color(0xFF222B4D)
+    val VerifiedDark = Color(0xFF5BC48C)
+    val WarningDark = Color(0xFFE0A645)
+    val RevokedDark = Color(0xFFF2766B)
 
-    // Accents — "Signal" cyan and "Halo" violet
-    val Signal = Color(0xFF5EE6F2)
-    val SignalDeep = Color(0xFF0B8496)
-    val Halo = Color(0xFF9B8CFF)
-    val HaloDeep = Color(0xFF5845D6)
-
-    // Status
-    val Mint = Color(0xFF5BE3A8)
-    val MintDeep = Color(0xFF0F8A5A)
-    val Amber = Color(0xFFF4BC62)
-    val AmberDeep = Color(0xFF9A6200)
-    val Rose = Color(0xFFFF7A88)
-    val RoseDeep = Color(0xFFC0313F)
+    /** Reveal scrim over the previous app. Always graphite, whatever the system theme. */
+    val Scrim = Color(0xFF0E0F12)
 }
 
-/** Kipat semantic colours that Material 3's scheme doesn't cover. */
+/** Theme-independent colours: QR codes stay dark-on-white in every theme so all scanners read them. */
+object KipatFixedColors {
+    val QrInk = Palette.InkPrimary
+    val QrPaper = Color.White
+}
+
+/** Kipat semantic colours. Screens read these (or MaterialTheme roles), never raw values. */
 @Immutable
 data class KipatColors(
-    val accent: Color,
-    val accentSecondary: Color,
-    val onAccent: Color,
-    val glass: Color,
-    val glassBorder: Color,
-    val glow: Color,
+    val background: Color,
+    val surface: Color,
+    val surfaceSecondary: Color,
+    val surfaceElevated: Color,
     val textPrimary: Color,
     val textSecondary: Color,
     val textTertiary: Color,
     val divider: Color,
-    val authentic: Color,
-    val pending: Color,
+    /** Borders of interactive elements (secondary buttons, fields); ≥ 3:1 against surfaces. */
+    val outline: Color,
+    val accent: Color,
+    val onAccent: Color,
+    val accentContainer: Color,
+    val verified: Color,
     val warning: Color,
     val revoked: Color,
-    val inactive: Color,
     val isDark: Boolean,
 ) {
     fun tone(tone: StatusTone): Color = when (tone) {
-        StatusTone.POSITIVE -> authentic
-        StatusTone.PENDING -> pending
+        StatusTone.POSITIVE -> verified
+        StatusTone.PENDING -> accent
         StatusTone.WARNING -> warning
         StatusTone.NEGATIVE -> revoked
-        StatusTone.NEUTRAL -> inactive
+        StatusTone.NEUTRAL -> textSecondary
     }
 }
 
-internal val DarkKipatColors = KipatColors(
-    accent = Palette.Signal,
-    accentSecondary = Palette.Halo,
-    onAccent = Palette.Ink950,
-    glass = Color(0x1AFFFFFF),
-    glassBorder = Color(0x26FFFFFF),
-    glow = Palette.Signal,
-    textPrimary = Palette.Ink50,
-    textSecondary = Palette.Ink300,
-    textTertiary = Palette.Ink400,
-    divider = Color(0x14FFFFFF),
-    authentic = Palette.Mint,
-    pending = Palette.Signal,
-    warning = Palette.Amber,
-    revoked = Palette.Rose,
-    inactive = Palette.Ink400,
-    isDark = true,
-)
-
 internal val LightKipatColors = KipatColors(
-    accent = Palette.SignalDeep,
-    accentSecondary = Palette.HaloDeep,
+    background = Palette.PaperBackground,
+    surface = Palette.PaperSurface,
+    surfaceSecondary = Palette.PaperSecondary,
+    surfaceElevated = Palette.PaperSurface,
+    textPrimary = Palette.InkPrimary,
+    textSecondary = Palette.InkSecondary,
+    textTertiary = Palette.InkTertiary,
+    divider = Palette.PaperDivider,
+    outline = Palette.PaperOutline,
+    accent = Palette.Cobalt,
     onAccent = Color.White,
-    glass = Color(0xB3FFFFFF),
-    glassBorder = Color(0x14000000),
-    glow = Palette.Signal,
-    textPrimary = Palette.Ink900,
-    textSecondary = Color(0xFF4A5368),
-    textTertiary = Color(0xFF6B7489),
-    divider = Palette.PaperLine,
-    authentic = Palette.MintDeep,
-    pending = Palette.SignalDeep,
-    warning = Palette.AmberDeep,
-    revoked = Palette.RoseDeep,
-    inactive = Color(0xFF6B7489),
+    accentContainer = Palette.CobaltContainer,
+    verified = Palette.Verified,
+    warning = Palette.Warning,
+    revoked = Palette.Revoked,
     isDark = false,
 )
 
-/** Colours for the Reveal overlay. The Reveal is always dark so it reads over any app. */
+internal val DarkKipatColors = KipatColors(
+    background = Palette.GraphiteBackground,
+    surface = Palette.GraphiteSurface,
+    surfaceSecondary = Palette.GraphiteSecondary,
+    surfaceElevated = Palette.GraphiteElevated,
+    textPrimary = Palette.MistPrimary,
+    textSecondary = Palette.MistSecondary,
+    textTertiary = Palette.MistTertiary,
+    divider = Palette.GraphiteDivider,
+    outline = Palette.GraphiteOutline,
+    accent = Palette.CobaltLight,
+    onAccent = Palette.CobaltDeep,
+    accentContainer = Palette.CobaltContainerDark,
+    verified = Palette.VerifiedDark,
+    warning = Palette.WarningDark,
+    revoked = Palette.RevokedDark,
+    isDark = true,
+)
+
+/**
+ * Reveal colours. The card follows the system theme (opaque, for legibility over any app); the
+ * scrim is always graphite; the accent (contact ring, edge trace, Connect) comes from the
+ * person's chosen Reveal accent.
+ */
 @Immutable
 data class RevealPalette(
-    val scrimTop: Color,
-    val scrimBottom: Color,
-    val primary: Color,
-    val secondary: Color,
-    val cardSurface: Color,
-    val cardBorder: Color,
-    val text: Color,
-    val textMuted: Color,
+    val scrim: Color,
+    /** Text placed directly on the scrim (e.g. the preview label); ≥ 7:1 on the 55% scrim over white. */
+    val onScrim: Color,
+    val accent: Color,
+    val onAccent: Color,
+    val card: KipatColors,
 ) {
     companion object {
-        fun of(theme: RevealTheme): RevealPalette = when (theme) {
-            RevealTheme.NIGHT -> RevealPalette(Color(0xCC05070C), Color(0xF205070C), Palette.Signal, Palette.Halo, Color(0xD9121722), Color(0x33A9F3FF), Palette.Ink50, Palette.Ink300)
-            RevealTheme.AURORA -> RevealPalette(Color(0xCC03100F), Color(0xF2040C10), Color(0xFF6CF2C9), Color(0xFF6FB6FF), Color(0xD90E1A1C), Color(0x3393FFE0), Palette.Ink50, Color(0xFF9FB7B3))
-            RevealTheme.EMBER -> RevealPalette(Color(0xCC0E0806), Color(0xF20C0807), Color(0xFFFFB86B), Color(0xFFFF7A9A), Color(0xD91C1412), Color(0x33FFD2A8), Palette.Ink50, Color(0xFFBFA9A0))
-            RevealTheme.MONO -> RevealPalette(Color(0xCC08080A), Color(0xF208080A), Color(0xFFE9ECF2), Color(0xFF8E96A8), Color(0xD9141519), Color(0x33FFFFFF), Palette.Ink50, Palette.Ink300)
+        fun of(theme: RevealTheme, dark: Boolean): RevealPalette {
+            val card = if (dark) DarkKipatColors else LightKipatColors
+            val (accent, onAccent) = when (theme) {
+                RevealTheme.NIGHT -> card.accent to card.onAccent
+                RevealTheme.AURORA -> if (dark) Color(0xFF6FD3BF) to Color(0xFF00201A) else Color(0xFF0B6E5F) to Color.White
+                RevealTheme.EMBER -> if (dark) Color(0xFFF0B07A) to Color(0xFF2E1400) else Color(0xFF9C4A0B) to Color.White
+                RevealTheme.MONO -> if (dark) Color(0xFFE3E4E8) to Color(0xFF17181C) else Color(0xFF2B2D33) to Color.White
+            }
+            return RevealPalette(Palette.Scrim, Palette.MistPrimary, accent, onAccent, card)
         }
     }
 }

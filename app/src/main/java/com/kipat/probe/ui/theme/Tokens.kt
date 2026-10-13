@@ -6,51 +6,49 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Shapes
 import androidx.compose.ui.unit.dp
 
-/** 4dp spacing grid. */
+/** 4 · 8 · 12 · 16 · 20 · 24 · 32 · 40 — the only spacing values used in screens. */
 object KipatSpacing {
-    val xxs = 2.dp
-    val xs = 4.dp
-    val sm = 8.dp
-    val md = 12.dp
-    val lg = 16.dp
-    val xl = 24.dp
-    val xxl = 32.dp
-    val xxxl = 48.dp
+    val s4 = 4.dp
+    val s8 = 8.dp
+    val s12 = 12.dp
+    val s16 = 16.dp
+    val s20 = 20.dp
+    val s24 = 24.dp
+    val s32 = 32.dp
+    val s40 = 40.dp
 
-    /** Horizontal gutter for screen content. */
-    val gutter = 20.dp
-    /** Minimum interactive size (Material/WCAG touch target). */
+    /** Screen gutter (Material compact margin). */
+    val gutter = s16
+    /** Minimum interactive size. */
     val touchTarget = 48.dp
+    /** One-line / two-line list row minimum heights. */
+    val rowOneLine = 56.dp
+    val rowTwoLine = 72.dp
 }
 
+/** Radius by role, not one radius everywhere. */
 object KipatRadius {
-    val xs = 8.dp
-    val sm = 12.dp
-    val md = 16.dp
-    val lg = 22.dp
-    val xl = 28.dp
-    val pill = 999.dp
+    val small = 8.dp      // chips
+    val medium = 12.dp    // buttons, inputs, QR frame, menus
+    val large = 16.dp     // recipient card, Reveal card
+    val extraLarge = 20.dp // dialogs, sheets
 }
 
 val KipatShapes = Shapes(
-    extraSmall = RoundedCornerShape(KipatRadius.xs),
-    small = RoundedCornerShape(KipatRadius.sm),
-    medium = RoundedCornerShape(KipatRadius.md),
-    large = RoundedCornerShape(KipatRadius.lg),
-    extraLarge = RoundedCornerShape(KipatRadius.xl),
+    extraSmall = RoundedCornerShape(4.dp),
+    small = RoundedCornerShape(KipatRadius.small),
+    medium = RoundedCornerShape(KipatRadius.medium),
+    large = RoundedCornerShape(KipatRadius.large),
+    extraLarge = RoundedCornerShape(KipatRadius.extraLarge),
 )
 
-/** Motion tokens. Reveal choreography lives in [com.kipat.probe.reveal.RevealTimeline]. */
+/** Shell motion. The Reveal choreography lives in [com.kipat.probe.reveal.RevealTimeline]. */
 object KipatMotion {
     const val Quick = 120
-    const val Standard = 220
-    const val Emphasized = 360
-    const val Ambient = 2400
+    const val Standard = 200
+    const val TabFade = 150
+    const val Push = 250
 
-    /** Decelerate into rest — default for things appearing. */
-    val EaseOut: Easing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)
-    /** Symmetric — for state changes of things already on screen. */
-    val EaseInOut: Easing = CubicBezierEasing(0.65f, 0f, 0.35f, 1f)
-    /** Accelerate away — for exits. */
-    val EaseIn: Easing = CubicBezierEasing(0.7f, 0f, 0.84f, 0f)
+    val Decelerate: Easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
+    val Accelerate: Easing = CubicBezierEasing(0.3f, 0f, 0.8f, 0.15f)
 }

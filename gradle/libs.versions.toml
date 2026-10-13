@@ -10,6 +10,7 @@ composeBom = "2026.08.00"
 navigationCompose = "2.10.2"
 lifecycle = "2.10.0"
 robolectric = "4.16.1"
+zxing = "3.5.3"
 androidxTestCore = "1.7.0"
 
 [libraries]
@@ -35,6 +36,7 @@ robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "
 androidx-test-core = { group = "androidx.test", name = "core-ktx", version.ref = "androidxTestCore" }
 compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
+zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

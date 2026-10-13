@@ -69,7 +69,9 @@ class AppSmokeTest {
             screenshot("reveal-unresolved")
             var activity: TapExperienceActivity? = null
             scenario.onActivity { activity = it }
-            compose.onNodeWithContentDescription("Dismiss Reveal").performClick()
+            compose.onNodeWithText("Done").assertExists() // unresolved card: nothing to connect or save
+            compose.onNodeWithText("Connect").assertDoesNotExist()
+            compose.onNodeWithContentDescription("Close").performClick()
             compose.waitForIdle()
             assertTrue("dismiss must finish the Reveal", activity!!.isFinishing)
         }
@@ -82,7 +84,7 @@ class AppSmokeTest {
         compose.mainClock.autoAdvance = false
         ActivityScenario.launch<TapExperienceActivity>(intent).use {
             // Step through the choreography with a manual clock: ripple → particles → card → content.
-            listOf(150L, 350L, 700L, 1_050L, 1_600L).fold(0L) { prev, at ->
+            listOf(120L, 400L, 600L, 900L, 1_150L).fold(0L) { prev, at ->
                 compose.mainClock.advanceTimeBy(at - prev)
                 screenshot("reveal-signature-${at}ms")
                 at
@@ -90,7 +92,9 @@ class AppSmokeTest {
             compose.mainClock.advanceTimeBy(2_000)
             compose.onNodeWithText("Vash Puno").assertExists()
             compose.onNodeWithText("BS Computer Science").assertExists()
-            compose.onNodeWithContentDescription("Authenticity: Verified · demo", substring = true).assertExists()
+            compose.onNodeWithContentDescription("Authenticity: Verified card. Sample data", substring = true).assertExists()
+            compose.onNodeWithText("Connect").assertExists()
+            compose.onNodeWithText("Save contact").assertExists()
             screenshot("reveal-signature-settled")
         }
     }
@@ -109,26 +113,67 @@ class AppSmokeTest {
     }
 
     @Test
-    fun tabsNavigateAndKeepWorking() {
+    fun threeTabsShareAndProfileFlowsWork() {
         ActivityScenario.launch(MainActivity::class.java).use {
-            compose.onNodeWithText("Preview Reveal").assertExists()
+            // Home: identity + Share as the one primary action; no Touch tab any more.
+            compose.onNodeWithText("Vash Puno").assertExists()
+            compose.onNodeWithText("Touch", useUnmergedTree = true).assertDoesNotExist()
             screenshot("home")
+            compose.onNodeWithText("Share").performClick()
+            compose.onNodeWithText("Copy link").assertExists()
+            compose.onNodeWithText("Scan to open Vash's Kipat").assertExists()
+            compose.mainClock.advanceTimeBy(500)
+            screenshot("share")
+            compose.onNodeWithContentDescription("Back").performClick()
+
             compose.onNodeWithText("Connections", useUnmergedTree = true).performClick()
-            compose.onNodeWithText("Search name, role or organization").assertExists()
+            compose.onNodeWithText("Search people").assertExists()
             screenshot("connections")
             compose.onNodeWithText("Alyssa Ramos").performClick()
+            compose.onNodeWithText("Save contact").assertExists()
             compose.onNodeWithText("Replay Reveal").assertExists()
-            screenshot("connection-sheet")
-            compose.onNodeWithText("Remove Connection").performClick()
-            compose.onNodeWithText("Touch", useUnmergedTree = true).performClick()
-            compose.onNodeWithText("Prototype Card Tools".uppercase()).assertExists()
-            compose.onNodeWithText("No NFC hardware").assertExists() // Robolectric has no NFC adapter
-            screenshot("touch")
+            screenshot("person")
+            compose.onNodeWithContentDescription("Back").performClick()
+
             compose.onNodeWithText("Profile", useUnmergedTree = true).performClick()
-            compose.onNodeWithText("Identity type".uppercase()).assertExists()
+            compose.onNodeWithText("How others see you").assertExists()
             screenshot("profile")
+            compose.onNodeWithText("Edit profile").performClick()
+            compose.onNodeWithText("Profile type").assertExists()
+            screenshot("profile-edit")
+            compose.onNodeWithContentDescription("Close").performClick() // no changes → closes without asking
+            compose.onNodeWithText("Developer tools").performClick()
+            compose.onNodeWithText("Write to tag").assertExists()
+            compose.onNodeWithText("Not present").assertExists() // Robolectric has no NFC adapter
+            screenshot("developer")
+            compose.onNodeWithContentDescription("Back").performClick()
+
             compose.onNodeWithText("Home", useUnmergedTree = true).performClick()
-            compose.onNodeWithText("Preview Reveal").assertExists()
+            compose.onNodeWithText("Vash Puno").assertExists()
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h891dp-notnight-xxhdpi")
+    fun lightThemeRenders() {
+        ActivityScenario.launch(MainActivity::class.java).use {
+            compose.onNodeWithText("Vash Puno").assertExists()
+            screenshot("light-home")
+            compose.onNodeWithText("Connections", useUnmergedTree = true).performClick()
+            screenshot("light-connections")
+            compose.onNodeWithText("Profile", useUnmergedTree = true).performClick()
+            screenshot("light-profile")
+        }
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("kipatprobe://tap/demo")).setClass(context, TapExperienceActivity::class.java)
+        compose.mainClock.autoAdvance = false
+        ActivityScenario.launch<TapExperienceActivity>(intent).use {
+            listOf(120L, 400L, 600L, 900L, 1_150L).fold(0L) { prev, at ->
+                compose.mainClock.advanceTimeBy(at - prev)
+                screenshot("light-reveal-${at}ms")
+                at
+            }
+            compose.mainClock.advanceTimeBy(1_000)
+            screenshot("light-reveal-settled")
         }
     }
 

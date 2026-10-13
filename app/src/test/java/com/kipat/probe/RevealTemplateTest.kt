@@ -82,22 +82,36 @@ class RevealTemplateTest {
     }
 
     @Test
-    fun signatureTimelineMatchesSpecTargets() {
+    fun signatureTimelineMatchesV2Targets() {
+        // design/higgsfield/critique-v2.md: identity readable < 1 s, settled ≈ 1.55 s.
         val t = RevealTimeline.SIGNATURE
-        assertEquals(600, t.avatarStart)
-        assertEquals(900, t.nameStart)
-        assertEquals(1200, t.roleStart)
-        assertEquals(1500, t.verifyStart)
-        assertEquals(1800, t.ctaStart)
+        assertEquals(700, t.avatarStart)
+        assertEquals(850, t.nameStart)
+        assertEquals(950, t.roleStart)
+        assertEquals(1100, t.verifyStart)
+        assertEquals(1250, t.ctaStart)
+        assertEquals(1550, t.totalDuration)
+    }
+
+    @Test
+    fun signatureHasNoDecorativeEffects() {
+        val c = RevealConfig.forTemplate(RevealTemplateId.SIGNATURE_DRIP)
+        assertEquals(0, c.particleCount)
+        assertEquals(ParticleMotion.NONE, c.particleMotion)
+        assertFalse(c.drip)
+        assertEquals(0f, c.glowStrength, 0f)
+        assertEquals(1, c.rippleRings)
+        assertTrue("contact ring stays small", c.rippleScale <= 0.2f)
+        assertTrue(c.perimeterTrace > 0f)
     }
 
     @Test
     fun frameProgressesMonotonicallyAndSettles() {
         val t = RevealTimeline.SIGNATURE
         assertEquals(0f, RevealEngine.frameAt(0, t).surface, 0f)
-        assertEquals(0f, RevealEngine.frameAt(899, t).name, 0f)
-        assertTrue(RevealEngine.frameAt(1000, t).name > 0f)
-        assertFalse(RevealEngine.frameAt(1700, t).isComplete)
+        assertEquals(0f, RevealEngine.frameAt(849, t).name, 0f)
+        assertTrue(RevealEngine.frameAt(950, t).name > 0f)
+        assertFalse(RevealEngine.frameAt(1500, t).isComplete)
         val end = RevealEngine.frameAt(t.totalDuration.toLong(), t)
         assertTrue(end.isComplete)
         assertEquals(1f, end.surface, 0f)

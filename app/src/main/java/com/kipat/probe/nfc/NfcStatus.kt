@@ -10,7 +10,7 @@ enum class NfcAvailability(val label: String) {
 enum class WriteError(val message: String) {
     NO_NFC("This device has no NFC hardware"),
     NFC_DISABLED("Turn on NFC in system settings first"),
-    TAG_LOST("Tag moved away — hold it still and try again"),
+    TAG_LOST("Tag moved away. Hold it still and try again"),
     READ_ONLY("Tag is read-only"),
     INSUFFICIENT_CAPACITY("Tag capacity is too small for this payload"),
     UNSUPPORTED("Tag does not support NDEF"),
@@ -18,7 +18,7 @@ enum class WriteError(val message: String) {
     IO("Write failed"),
 }
 
-/** State machine for the prototype card writer on the Touch screen. */
+/** State machine for the prototype card writer in Profile → Developer tools. */
 sealed interface TagWriteState {
     data object Idle : TagWriteState
     data class Armed(val uri: String) : TagWriteState
@@ -30,8 +30,8 @@ sealed interface TagWriteState {
 val TagWriteState.label: String
     get() = when (this) {
         TagWriteState.Idle -> "Waiting"
-        is TagWriteState.Armed -> "Armed — hold a blank NTAG 213/215/216 to the phone"
+        is TagWriteState.Armed -> "Armed. Hold a blank NTAG 213, 215 or 216 to the phone"
         is TagWriteState.Writing -> "Writing…"
         is TagWriteState.Success -> if (formatted) "Formatted & written ($bytes bytes)" else "Written successfully ($bytes bytes)"
-        is TagWriteState.Failed -> error.message + (detail?.let { " — $it" } ?: "")
+        is TagWriteState.Failed -> error.message + (detail?.let { ": $it" } ?: "")
     }

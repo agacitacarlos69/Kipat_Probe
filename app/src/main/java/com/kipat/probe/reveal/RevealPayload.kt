@@ -52,16 +52,13 @@ data class RevealPayload(
         const val MAX_ID = 64
         const val FALLBACK_NAME = "Kipat card"
 
+        /** Preview shows exactly what a recipient would see, so it uses the same label. */
         fun defaultPrimaryCta(source: RevealSource) = when (source) {
-            RevealSource.PREVIEW -> "Looks good"
             RevealSource.REPLAY -> "Connected"
             else -> "Connect"
         }
 
-        fun defaultSecondaryCta(source: RevealSource) = when (source) {
-            RevealSource.PREVIEW -> "Edit profile"
-            else -> "Open in Kipat"
-        }
+        fun defaultSecondaryCta(@Suppress("UNUSED_PARAMETER") source: RevealSource) = "Save contact"
 
         /** Shown when a tag or link could not be resolved to any known identity. */
         fun unresolved(cardId: String?, source: RevealSource): RevealPayload = RevealPayload(

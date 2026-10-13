@@ -34,7 +34,7 @@ object SampleData {
             ProfileField.DISPLAY_NAME to "Vash Puno",
             ProfileField.PROGRAM to "BS Computer Science",
             ProfileField.UNIVERSITY to "Polytechnic University of the Philippines",
-            ProfileField.BIO to "Building Kipat — identity in a tap.",
+            ProfileField.BIO to "Building Kipat. Identity in a tap.",
             ProfileField.GITHUB to "vashpuno",
             ProfileField.ROLE to "Founder",
             ProfileField.COMPANY to "Kipat",
@@ -53,8 +53,8 @@ object SampleData {
     )
 
     fun recentTaps(now: Long): List<RecentTap> = listOf(
-        RecentTap("t-1", "KPT-DEMO-0102", "Alyssa Ramos", "UX Designer · Globe Labs", AuthenticityState.AUTHENTIC, now - 2 * HOUR, savedAsConnection = true, isDemo = true),
-        RecentTap("t-2", "KPT-DEMO-0201", "Jonas Reyes", "BS Architecture · UST", AuthenticityState.UNVERIFIED, now - 4 * HOUR, savedAsConnection = false, isDemo = true),
+        RecentTap("t-1", "KPT-DEMO-0102", "Alyssa Ramos", "UX Designer, Globe Labs", AuthenticityState.AUTHENTIC, now - 2 * HOUR, savedAsConnection = true, isDemo = true),
+        RecentTap("t-2", "KPT-DEMO-0201", "Jonas Reyes", "BS Architecture, UST", AuthenticityState.UNVERIFIED, now - 4 * HOUR, savedAsConnection = false, isDemo = true),
         RecentTap("t-3", "KPT-DEMO-0103", "Miguel Santos", "BS Information Technology", AuthenticityState.AUTHENTIC, now - 5 * HOUR, savedAsConnection = true, isDemo = true),
     )
 }

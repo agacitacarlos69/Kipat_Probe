@@ -25,31 +25,28 @@ enum class AuthenticityState(val wireId: String) {
 enum class StatusTone { POSITIVE, NEUTRAL, PENDING, WARNING, NEGATIVE }
 
 data class AuthenticityPresentation(
+    /** Short words shown next to the trust glyph, e.g. "Verified card". */
     val label: String,
     val detail: String,
     val tone: StatusTone,
-    /** True only when the UI may show a "verified" check mark. */
+    /** True only when the UI may show the filled verified seal. */
     val showsCheck: Boolean,
+    /** "Sample data" for demo payloads — always shown on its own line, never merged into [label]. */
+    val demoNote: String?,
 )
 
 /**
- * Single source of truth for how an authenticity state is described to people.
- * Demo data is always labelled as demo so the prototype never pretends to be verified.
+ * Single source of truth for how an authenticity state is described to people. Calm, plain
+ * words; demo data is always disclosed separately so the prototype never pretends to be real.
  */
-fun AuthenticityState.present(isDemo: Boolean): AuthenticityPresentation = when (this) {
-    AuthenticityState.AUTHENTIC -> if (isDemo) {
-        AuthenticityPresentation("Verified · demo", "Sample data — no real verification ran", StatusTone.POSITIVE, showsCheck = true)
-    } else {
-        AuthenticityPresentation("Verified", "Card signature checked", StatusTone.POSITIVE, showsCheck = true)
+fun AuthenticityState.present(isDemo: Boolean): AuthenticityPresentation {
+    val note = if (isDemo) "Sample data" else null
+    return when (this) {
+        AuthenticityState.AUTHENTIC -> AuthenticityPresentation("Verified card", if (isDemo) "Sample data. No real verification ran" else "Card signature checked", StatusTone.POSITIVE, showsCheck = true, demoNote = note)
+        AuthenticityState.CHECKING -> AuthenticityPresentation("Checking card", "Verifying this card", StatusTone.PENDING, showsCheck = false, demoNote = note)
+        AuthenticityState.UNVERIFIED -> AuthenticityPresentation("Unverified card", "Details came from the card and were not verified", StatusTone.WARNING, showsCheck = false, demoNote = note)
+        AuthenticityState.REVOKED -> AuthenticityPresentation("Card revoked", "The owner revoked this card", StatusTone.NEGATIVE, showsCheck = false, demoNote = note)
+        AuthenticityState.ERROR -> AuthenticityPresentation("Couldn't verify", "Verification failed. Try again later", StatusTone.NEGATIVE, showsCheck = false, demoNote = note)
+        AuthenticityState.UNKNOWN -> AuthenticityPresentation("Not verified", "Verification isn't available yet", StatusTone.NEUTRAL, showsCheck = false, demoNote = note)
     }
-    AuthenticityState.CHECKING -> AuthenticityPresentation("Checking…", "Verifying this card", StatusTone.PENDING, showsCheck = false)
-    AuthenticityState.UNVERIFIED -> AuthenticityPresentation("Unverified", "Details came from the tag and were not verified", StatusTone.WARNING, showsCheck = false)
-    AuthenticityState.REVOKED -> AuthenticityPresentation("Revoked", "This card has been revoked by its owner", StatusTone.NEGATIVE, showsCheck = false)
-    AuthenticityState.ERROR -> AuthenticityPresentation("Couldn't verify", "Verification failed — try again later", StatusTone.NEGATIVE, showsCheck = false)
-    AuthenticityState.UNKNOWN -> AuthenticityPresentation(
-        if (isDemo) "Not verified · demo" else "Not verified",
-        "Verification isn't available yet",
-        StatusTone.NEUTRAL,
-        showsCheck = false,
-    )
 }
