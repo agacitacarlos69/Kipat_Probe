@@ -79,10 +79,10 @@ More: [`docs/architecture.md`](docs/architecture.md).
 
 ## Design references (Higgsfield)
 
-Prompts, the credit-guarded generation script and implementation notes are in
-[`design/higgsfield/`](design/higgsfield/). **No Higgsfield generation has been run yet** — the
-CLI login could not be completed from the cloud build container. The Reveal was built natively
-from the written brief; Higgsfield output is art direction only and is never the runtime.
+[`design/higgsfield/`](design/higgsfield/) holds the brief, exact prompts, the credit-guarded
+script, the generated reference stills (2 keyframes + one 4 s Seedance clip, 4 credits) and what
+was adopted or rejected. Two ideas from the clip — a progressive scrim and a card-outline trace —
+are now in the native Signature Reveal. Higgsfield output is art direction only, never the runtime.
 
 ## Known limitation: backdrop varies by device
 

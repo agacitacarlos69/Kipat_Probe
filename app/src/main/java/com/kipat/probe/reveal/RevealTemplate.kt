@@ -86,6 +86,8 @@ data class RevealConfig(
     val glowStrength: Float,
     val drip: Boolean,
     val surfaceEntrance: SurfaceEntrance,
+    /** Strength (0 = off) of the light that traces the card outline before the glass fills in. */
+    val perimeterTrace: Float = 0f,
 ) {
     companion object {
         const val MAX_PARTICLES = 56
@@ -96,14 +98,14 @@ data class RevealConfig(
                 return RevealConfig(template, RevealTimeline.REDUCED, 0, 0, ParticleMotion.NONE, 0.25f, false, SurfaceEntrance.FADE)
             }
             val base = when (template) {
-                RevealTemplateId.SIGNATURE_DRIP -> RevealConfig(template, RevealTimeline.SIGNATURE, 2, 44, ParticleMotion.CONVERGE, 1f, true, SurfaceEntrance.RISE)
+                RevealTemplateId.SIGNATURE_DRIP -> RevealConfig(template, RevealTimeline.SIGNATURE, 2, 44, ParticleMotion.CONVERGE, 1f, true, SurfaceEntrance.RISE, perimeterTrace = 0.55f)
                 RevealTemplateId.PARTICLE_BLOOM -> RevealConfig(template, RevealTimeline.SIGNATURE, 1, MAX_PARTICLES, ParticleMotion.BLOOM, 0.85f, false, SurfaceEntrance.RISE)
                 RevealTemplateId.MINIMAL_FADE -> RevealConfig(template, RevealTimeline.MINIMAL, 0, 0, ParticleMotion.NONE, 0.35f, false, SurfaceEntrance.FADE)
                 RevealTemplateId.RIPPLE -> RevealConfig(template, RevealTimeline.SIGNATURE, 3, 0, ParticleMotion.NONE, 0.7f, false, SurfaceEntrance.RISE)
                 RevealTemplateId.ORBIT -> RevealConfig(template, RevealTimeline.SIGNATURE, 1, 24, ParticleMotion.ORBIT, 0.8f, false, SurfaceEntrance.RISE)
                 RevealTemplateId.SOFT_GLOW -> RevealConfig(template, RevealTimeline.SIGNATURE, 0, 0, ParticleMotion.NONE, 1f, false, SurfaceEntrance.FADE)
                 RevealTemplateId.LIQUID_LOGO -> RevealConfig(template, RevealTimeline.SIGNATURE, 1, 0, ParticleMotion.NONE, 0.8f, true, SurfaceEntrance.LIQUID)
-                RevealTemplateId.LINE_TRACE -> RevealConfig(template, RevealTimeline.SIGNATURE, 0, 0, ParticleMotion.NONE, 0.5f, false, SurfaceEntrance.TRACE)
+                RevealTemplateId.LINE_TRACE -> RevealConfig(template, RevealTimeline.SIGNATURE, 0, 0, ParticleMotion.NONE, 0.5f, false, SurfaceEntrance.TRACE, perimeterTrace = 0.9f)
                 RevealTemplateId.PIXEL_BUILD -> RevealConfig(template, RevealTimeline.SIGNATURE, 0, 36, ParticleMotion.GRID, 0.5f, false, SurfaceEntrance.FADE)
                 RevealTemplateId.CONSTELLATION -> RevealConfig(template, RevealTimeline.SIGNATURE, 0, 18, ParticleMotion.CONSTELLATION, 0.6f, false, SurfaceEntrance.RISE)
             }

@@ -78,7 +78,7 @@ object RevealEffects {
             ParticleMotion.CONSTELLATION -> drawConstellation(frame, geo, particles, config.particleCount, primary, secondary)
         }
         if (tracePath != null && traceMeasure != null && traceSegment != null) {
-            drawTrace(frame, traceMeasure, traceSegment, primary)
+            drawTrace(frame, config.perimeterTrace, traceMeasure, traceSegment, primary, secondary)
         }
     }
 
@@ -230,14 +230,24 @@ object RevealEffects {
         }
     }
 
-    /** Line Trace: a single stroke traces the card outline. Path objects are reused. */
-    private fun DrawScope.drawTrace(frame: RevealFrame, measure: PathMeasure, segment: Path, color: Color) {
+    /**
+     * Light tracing the card outline (Line Trace, and a softer version in Signature). The bright
+     * head is the "sparkle outline" from the Higgsfield reference. Path objects are reused.
+     */
+    private fun DrawScope.drawTrace(frame: RevealFrame, strength: Float, measure: PathMeasure, segment: Path, primary: Color, secondary: Color) {
         val p = frame.particles.coerceAtLeast(frame.surface)
-        if (p <= 0f) return
+        if (p <= 0f || strength <= 0f) return
+        val alpha = strength * (1f - 0.7f * frame.cta)
+        if (alpha <= 0.01f) return
         segment.reset()
         val len = measure.length
         measure.getSegment(0f, len * p, segment, true)
-        drawPath(segment, color.copy(alpha = 0.9f * (1f - 0.6f * frame.cta)), style = Stroke(width = 2f * density, cap = StrokeCap.Round))
+        drawPath(segment, primary.copy(alpha = alpha), style = Stroke(width = 1.5f * density, cap = StrokeCap.Round))
+        if (p < 1f) {
+            val head = measure.getPosition(len * p)
+            drawCircle(secondary.copy(alpha = alpha), 3.5f * density, head)
+            drawCircle(primary.copy(alpha = alpha), 1.8f * density, head)
+        }
     }
 
     private fun lerp(a: Offset, b: Offset, t: Float) = Offset(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t)

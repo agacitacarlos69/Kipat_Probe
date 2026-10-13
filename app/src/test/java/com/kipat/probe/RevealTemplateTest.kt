@@ -70,7 +70,15 @@ class RevealTemplateTest {
             assertEquals(ParticleMotion.NONE, c.particleMotion)
             assertEquals(SurfaceEntrance.FADE, c.surfaceEntrance)
             assertEquals(RevealTimeline.REDUCED, c.timeline)
+            assertEquals(0f, c.perimeterTrace, 0f)
         }
+    }
+
+    @Test
+    fun signatureTracesTheCardOutline() {
+        assertTrue(RevealConfig.forTemplate(RevealTemplateId.SIGNATURE_DRIP).perimeterTrace > 0f)
+        assertTrue(RevealConfig.forTemplate(RevealTemplateId.LINE_TRACE).perimeterTrace > 0f)
+        assertEquals(0f, RevealConfig.forTemplate(RevealTemplateId.MINIMAL_FADE).perimeterTrace, 0f)
     }
 
     @Test

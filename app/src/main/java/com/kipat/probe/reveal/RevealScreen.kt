@@ -125,9 +125,9 @@ fun RevealScreen(
 
     var cardRect by remember { mutableStateOf<Rect?>(null) }
     val density = LocalDensity.current
-    val trace = remember(cardRect, config.surfaceEntrance) {
+    val trace = remember(cardRect, config.perimeterTrace) {
         val r = cardRect
-        if (config.surfaceEntrance == SurfaceEntrance.TRACE && r != null) {
+        if (config.perimeterTrace > 0f && r != null) {
             val path = Path().apply { addRoundRect(RoundRect(r, CornerRadius(with(density) { 28.dp.toPx() }))) }
             Triple(path, PathMeasure().apply { setPath(path, false) }, Path())
         } else {
@@ -155,7 +155,10 @@ fun RevealScreen(
     ) {
         // Scrim + effects: the previous app stays faintly visible underneath.
         Canvas(Modifier.fillMaxSize()) {
-            val scrim = (elapsedMs / 180f).coerceIn(0f, 1f)
+            // Scrim fades in fast, then deepens as the card resolves, so the app underneath stays
+            // legible at the moment of the tap (adopted from the Higgsfield reference).
+            val settle = RevealEngine.frameAt(elapsedMs, timeline).surface
+            val scrim = (elapsedMs / 180f).coerceIn(0f, 1f) * (0.6f + 0.4f * settle)
             drawRect(Brush.verticalGradient(listOf(palette.scrimTop, palette.scrimBottom)), alpha = scrim)
             val rect = cardRect ?: return@Canvas
             val geo = RevealGeometry(

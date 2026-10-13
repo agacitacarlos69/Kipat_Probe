@@ -27,7 +27,7 @@ primary/secondary CTA labels, connectable.
 
 | Template | Implementation |
 |---|---|
-| Signature · Drip | **Full** — glow, 2 ripples, drip bead, 44 converging particles, rise entrance |
+| Signature · Drip | **Full** — glow, 2 ripples, drip bead, 44 converging particles, soft outline trace, rise entrance |
 | Particle Bloom | **Full** — outward bloom settling into a halo |
 | Minimal Fade | **Full** — fast fade timeline, no particles |
 | Ripple, Orbit, Soft Glow, Liquid Logo, Line Trace, Pixel Build, Constellation | Parameterised on the same primitives (`RevealConfig`) |
@@ -38,7 +38,7 @@ All templates share `effects/RevealEffects.kt`; there are no per-template engine
 
 | ms | Beat |
 |---|---|
-| 0 | first frame: scrim, glow, ripple; start haptic |
+| 0 | first frame: scrim (60%, deepening as the card resolves), glow, ripple; start haptic |
 | 200 | glow peak, particles begin |
 | 600 | card surface + avatar |
 | 900 | name |
