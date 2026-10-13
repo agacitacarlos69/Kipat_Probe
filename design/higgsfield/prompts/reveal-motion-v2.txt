@@ -1,0 +1,26 @@
+Create a short motion-design reference for Kipat, an Android-first NFC identity product.
+
+The supplied START frame is an abstract, neutral, out-of-focus backdrop representing the app the user already had open. It depicts no real application. The supplied END frame is the selected Kipat identity surface (a white card with geometric placeholders) resting over the same backdrop, now dimmed.
+
+IMPORTANT: Preserve the END frame's card geometry exactly. DO NOT create new text. DO NOT create words. DO NOT create letters or numbers. DO NOT invent a phone operating system. DO NOT create an iPhone screen. DO NOT create icons, app grids, status bars or fake application content. The backdrop stays abstract.
+
+Locked-off camera, flat front-on view. All motion completes within the first 1.8 seconds; the rest of the clip holds perfectly still on the end frame.
+
+Motion intention: physical NFC contact → immediate acknowledgement → identity resolves → ready to act.
+
+Sequence:
+0.00–0.15 s: a small, thin, tactile radial ring acknowledges contact at the top-centre of the frame, one ring only, quickly fading.
+0.15–0.40 s: the backdrop begins gently darkening.
+0.30–0.65 s: a thin precise cobalt-blue line traces the card's outline, starting at the top-centre of the card edge and running outward in both directions.
+0.50–0.90 s: the white card surface resolves through opacity and a tiny scale change (98% to 100%).
+0.70–1.05 s: the gray circle resolves.
+0.85–1.20 s: the dark bar and the gray bars appear in order, top to bottom.
+1.10–1.40 s: the small green circle and green bar resolve.
+1.25–1.55 s: the blue rectangle and the two outlined rectangles become visible.
+1.55–1.80 s: motion settles completely; hold.
+
+Motion character: fast, precise, calm, tactile, premium through restraint, no spectacle. Use subtle opacity, subtle mask reveal, small scale movement and one controlled edge line.
+
+Avoid: particle explosions, swirling particles, energy vortex, neon, purple or cyan glow, hologram, sparkles, lens flare, camera movement, 3D rotation, large blur bloom, cinematic zoom, slow motion, fake operating system, iPhone, fake UI text, generated letters, morphing card geometry.
+
+This is an engineering motion reference for a real native Android interaction.

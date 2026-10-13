@@ -1,0 +1,35 @@
+Create a flat professional UI material reference board for Kipat, an Android-first NFC digital identity product.
+
+THIS IS NOT A PHONE MOCKUP. THIS IS NOT AN APP SCREEN GENERATOR. THIS IS NOT MARKETING ART.
+The goal is to explore the visual treatment of a single digital identity surface component.
+
+Canvas: clean neutral design-board background, very light warm-neutral gray (#F6F6F4), shot perfectly flat and front-on, even soft studio light.
+
+Show three variations of the SAME identity card component side by side, each about 9:14 portrait proportion, evenly spaced:
+1. light variant: white surface (#FFFFFF) with a hairline cool-gray border (#E2E2DE)
+2. light variant on a slightly darker neutral (#EEEEEB) with no border, separated by tone only
+3. dark variant: graphite surface (#1A1B1E to #26272B), not black
+
+Inside each card, top to bottom, left-aligned on a precise internal grid with consistent 24px margins, using ONLY plain geometric shapes:
+- one solid circle, medium gray, about 18% of the card width
+- below it, one long solid rounded bar, dark graphite (#17181C) on the light cards and near-white on the dark card, about 60% of the card width, the thickest bar
+- two thinner solid rounded bars below it in mid gray, about 45% and 70% of the card width
+- one small solid circle in quiet green (#16794A) followed by one very short thin bar in the same green
+- at the bottom, one full-width solid rectangle with 12px corner radius filled with cobalt ink blue (#2747C8)
+- below it, two equal half-width rectangles with 12px corner radius, outlined in a 1px gray line, empty
+
+ABSOLUTELY NO WORDS. NO LETTERS. NO NUMBERS. NO FAKE TEXT. NO TYPOGRAPHY. NO LOGOS. NO GENERATED WRITING. NO SYMBOLS INSIDE THE SHAPES. Every bar is a plain solid shape with nothing written on, in or near it.
+
+Design direction: QUIET GRAPHITE — professional minimalist, calm, precise, high trust, Android-native sensibility, excellent proportions, high-end industrial product-design restraint.
+
+Palette: warm-neutral off-white canvas, white and graphite surfaces, cool gray separators, exactly one restrained cobalt ink accent used only on the single full-width action rectangle. Do not make the cards black neon.
+
+Surface: mostly flat, subtle tonal layering, thin precise borders where useful, very restrained soft shadow (barely visible), no transparency.
+
+Geometry: moderate corner radius, about 16px on the cards and 12px on the action rectangles; realistic mobile component proportions; consistent margins.
+
+The component must feel appropriate for a student, developer, professional, founder and executive. Timeless and shippable.
+
+STRICTLY FORBIDDEN: purple or cyan, gradients of any kind, glassmorphism, glowing borders, neon, cyberpunk, hologram, 3D phone, device frame, hands, floating perspective UI, marketing poster, giant pill-shaped controls, excessive roundness, decorative particles, sparkles, fake charts, fake statistics, gradient blobs, invented text, gibberish, iOS home screen, Apple trade dress, Google Wallet imitation, Samsung Wallet imitation.
+
+Think: careful professional product design, not futuristic concept art.

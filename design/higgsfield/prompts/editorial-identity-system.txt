@@ -1,0 +1,25 @@
+Create a flat professional material-design exploration for Kipat, an Android-first NFC identity and networking product.
+
+Show three versions of one identity surface on a neutral design canvas (warm neutral #F7F5F1, not cream, not yellow), shot perfectly flat and front-on with even soft light. Each version about 9:14 portrait proportion, evenly spaced.
+
+DO NOT GENERATE ACTUAL UI TEXT. ABSOLUTELY NO: words, letters, numbers, fake typography, fake names, logos, symbols inside shapes. Every bar is a plain solid shape with nothing written on, in or near it.
+
+Represent content only through plain geometry, arranged with editorial rhythm and generous empty space:
+- one large solid circle in soft gray, about 26% of the surface width, placed top-left with a wide margin
+- two very long, thick solid bars in deep ink (#1B1A18) stacked tightly below it, the strongest element on the surface
+- two thin mid-gray bars below with a clear gap above them
+- one tiny solid circle in muted green followed by a short thin bar in the same green
+- near the bottom, one short solid bar in desaturated blue (#3552B5) as the only accent
+
+Versions:
+1. white surface with no border, separated from the canvas only by a very faint shadow
+2. no surface at all — the same geometry placed directly on the canvas, with one hairline divider
+3. dark ink surface (#1E1D1B) with light bars
+
+Direction: EDITORIAL IDENTITY — refined, human, professional, minimal, identity-first, warm but not playful. Excellent use of empty space, strong visual balance, precise margins, minimal boundaries, subtle separation rather than large containers. The circle-and-thick-bars identity area receives the strongest emphasis.
+
+Avoid generic dashboard styling, CRM visual language and business-card-template aesthetics.
+
+Avoid: gradient blobs, gradients of any kind, neon, glass, cyberpunk, futuristic holograms, big glowing cards, marketing illustration, 3D phone frames, devices, hands, fake app screenshots, Apple-like interface chrome, generated typography, serif lettering, decorative ornaments.
+
+The result should feel like a visual system a serious product design team could translate into native Jetpack Compose.
