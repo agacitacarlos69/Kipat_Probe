@@ -1,0 +1,95 @@
+# Kipat
+
+Kipat is an Android-first identity and connection product. Tapping a Kipat Card (or, later, a
+Kipat phone) opens a short, premium **Reveal** *above whatever app the other person was using*:
+name, avatar, role and organization appear with their authenticity state, and they can Connect,
+Open, or dismiss straight back to their app.
+
+This repository started as a Java/XML diagnostic probe. It is now the first Kipat product
+shell in Kotlin + Jetpack Compose. The probe's working NFC tag writer and deep link were
+migrated, not discarded.
+
+![App screens (Robolectric renders)](docs/images/app-screens.png)
+
+## What works today
+
+| Area | Status |
+|---|---|
+| 4-tab shell (Home, Connections, Touch, Profile) | Working — Compose + Material 3, edge-to-edge, per-tab state saved/restored, dark & light |
+| Reveal (`TapExperienceActivity`) | Working — translucent, own task, dynamic payload, 10-template catalog (3 fully choreographed), reduced-motion and low-end fallbacks |
+| Preview / Replay Reveal | Working — Home, Profile and Connections launch the same renderer |
+| Debug deep link `kipatprobe://tap/…` | Working — routes into the Reveal |
+| Kipat Card NFC tap → Reveal | Implemented (NDEF filter + parser + resolver); **not yet tested on a physical device** |
+| Prototype NTAG writer | Migrated into Touch → Prototype Card Tools; **not yet re-tested on hardware** after migration |
+| Connections, taps, profile publishing | **Local demo data, in memory** — resets when the process dies |
+| Authenticity / verification | **Not implemented.** Sample data shows "Verified · demo"; tag-supplied names show "Unverified" |
+| Kipat Plus, billing, backend, NTAG 424, HCE phone-to-phone | Not implemented (placeholders only) |
+
+## Build
+
+Requirements: JDK 21+, Android SDK with platform 37 (`local.properties` → `sdk.dir=…`).
+
+```bash
+./gradlew :app:assembleDebug        # APK in app/build/outputs/apk/debug/
+./gradlew :app:testDebugUnitTest    # JVM unit + Robolectric smoke tests
+./gradlew :app:lintDebug
+```
+
+Toolchain: AGP 9.4.1 (built-in Kotlin 2.2.10), Gradle 9.6.0, compileSdk/targetSdk 37,
+**minSdk 26**. Compose BOM 2026.08.00.
+
+Optional: `-Pkipat.screenshots=true` writes smoke-test PNGs to
+`app/build/outputs/kipat-screenshots/`. If Maven Central rate-limits Robolectric's
+`android-all` download, pass `-Probolectric.dependency.repo.url=<mirror>`.
+
+## Trigger the Reveal without a tag
+
+```bash
+adb shell am start -W -a android.intent.action.VIEW -d "kipatprobe://tap/TEST123"   # unknown card shell
+adb shell am start -W -a android.intent.action.VIEW -d "kipatprobe://tap/demo"      # your own demo identity
+adb shell am start -W -a android.intent.action.VIEW \
+  -d "kipatprobe://tap/KPT-X1?n=Sam%20Reyes&s=Designer&t=particle-bloom&a=revoked"
+adb logcat -s KipatReveal                                                            # timing markers
+```
+
+Touch → Developer diagnostics has the same triggers as buttons. See [`docs/reveal.md`](docs/reveal.md).
+
+## Prototype NFC tag writing
+
+Touch → **Prototype Card Tools** → *Arm Tag Write*, then hold a blank NTAG 213/215/216 to the
+phone. It writes `https://kipat.app/c/<cardId>[?n=<name>&t=<template>]` plus an Android
+Application Record. Tapping that tag on a phone with Kipat installed opens the Reveal.
+Foreground dispatch is only active while armed on the Touch screen. Details: [`docs/nfc.md`](docs/nfc.md).
+
+## Architecture
+
+```
+app/src/main/java/com/kipat/probe/
+  MainActivity.kt            Compose root + armed tag writer
+  TapExperienceActivity.kt   translucent Reveal host (NFC, deep link, preview, replay)
+  navigation/                tabs + NavHost
+  ui/theme, ui/components    design tokens and shared components
+  ui/screens/{home,connections,touch,profile}
+  reveal/                    payload, catalog, timeline engine, RevealScreen, effects/
+  nfc/                       URI parser, tag writer, write controller
+  model/, data/              domain models, in-memory repository, resolver
+```
+
+More: [`docs/architecture.md`](docs/architecture.md).
+
+## Design references (Higgsfield)
+
+Prompts, the credit-guarded generation script and implementation notes are in
+[`design/higgsfield/`](design/higgsfield/). **No Higgsfield generation has been run yet** — the
+CLI login could not be completed from the cloud build container. The Reveal was built natively
+from the written brief; Higgsfield output is art direction only and is never the runtime.
+
+## Known limitation: backdrop varies by device
+
+The Reveal relies on a translucent window in its own task so the previous app stays visible.
+Whether that app keeps rendering live, freezes, or is replaced by the launcher/wallpaper is
+OEM- and version-dependent (the earlier probe measured this per device). The Samsung / Xiaomi /
+Pixel backdrop matrix is **still to be validated on physical devices**; nothing here was
+verified on an emulator or real phone.
+
+The package/application ID remains `com.kipat.probe` intentionally.

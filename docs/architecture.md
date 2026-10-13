@@ -1,0 +1,60 @@
+# Architecture
+
+Single `:app` module, Kotlin + Jetpack Compose, no DI framework (one in-memory repository is
+the only shared dependency).
+
+## Layers
+
+| Package | Responsibility | Android-free? |
+|---|---|---|
+| `model/` | Identity, profile fields/templates, connections, card, taps, authenticity + its presentation, profile validation | Yes |
+| `reveal/RevealTemplate.kt`, `RevealEngine.kt`, `RevealPayload.kt` | Template catalog, `RevealConfig`, `RevealTimeline`, frame math, payload + Intent codec | Yes |
+| `nfc/NfcIntentParser.kt`, `NfcStatus.kt` | Kipat URI parsing, tag URI builder, write states | Yes |
+| `data/` | `SampleData`, `KipatRepository` (StateFlows), `RevealResolver` (tap → payload) | Yes |
+| `nfc/NfcTagWriter.kt`, `NfcWriteController.kt`, `NfcIntents.kt` | Android NFC I/O and foreground dispatch | No |
+| `reveal/RevealScreen.kt`, `effects/`, `RevealRuntime.kt` | Compose renderer, Canvas primitives, launcher, quality policy, haptics, trace | No |
+| `ui/theme`, `ui/components`, `ui/screens`, `navigation/` | Design system and screens | No |
+
+The Android-free layers are what the JVM unit tests cover.
+
+## Activities
+
+- **`MainActivity`** (`singleTop`) — Compose root (`KipatApp`). Owns an `NfcWriteController`;
+  `onNewIntent` gives an armed write first refusal on tag intents, otherwise handles navigation
+  extras. If Android ever delivers a Kipat card tap here (AAR fallback), it forwards to the Reveal.
+- **`TapExperienceActivity`** (`singleTop`, `taskAffinity=""`, `excludeFromRecents`,
+  translucent theme) — the only Reveal host. Resolves its payload from (a) nonce-protected
+  in-app extras, or (b) the launch URI via `NfcIntentParser` + `RevealResolver`. Finishes on
+  `onStop` so an interrupted Reveal never lingers.
+
+## Navigation
+
+Four tabs via Navigation Compose string routes (`home`, `connections`, `touch`, `profile`) plus
+`connection/{connectionId}`. Tab switches use `popUpTo(start){saveState}` + `restoreState` +
+`launchSingleTop`, so each tab keeps its scroll/search/editor state; re-tapping the active tab
+pops to its root; Back from any tab returns to Home, then exits.
+
+## State
+
+`KipatRepository` exposes `StateFlow`s (identity, card, entitlement, connections, recent taps,
+Reveal timings). Screens collect with `collectAsStateWithLifecycle`. Only Profile uses a
+`ViewModel` (the editable draft must survive configuration changes). Everything is in memory —
+persistence (Room/DataStore) and a backend are the planned replacements behind the same object.
+
+**Taps vs connections:** every NFC/deep-link Reveal records a `RecentTap`; a `Connection` is only
+created by the explicit *Connect* action.
+
+## Design system
+
+`ui/theme`: colour palette + semantic `KipatColors` (accent, glass, authentic/pending/warning/
+revoked/inactive), `RevealPalette` per Reveal theme, type scale (all `sp`), `KipatSpacing`,
+`KipatRadius`, `KipatMotion` (durations + easing). Components read tokens; screens avoid raw
+constants. Dark and light schemes are both defined; the Reveal is always dark.
+
+## Extension points (not implemented)
+
+- Verification: set `RevealPayload.authenticity = CHECKING` on first frame, update from a backend
+  / NTAG 424 SUN check without blocking the first visual.
+- Billing: `Entitlement` + `RevealTemplateId.requiresPlus` are modelled; nothing is gated yet.
+- Designer-authored Rive/Lottie Reveals: add a template whose renderer swaps the Canvas layer,
+  keeping the same `KipatIdentityCard` for dynamic text.
