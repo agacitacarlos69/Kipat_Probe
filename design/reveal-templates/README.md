@@ -18,6 +18,20 @@ No particles, glow, gradients, blur, bloom or sound in any template.
 
 Final scores and role picks: [final-scorecard.md](final-scorecard.md).
 
+**Revised for the identity surface** (`design/reveal-surface/`): every template now settles into
+`KipatIdentitySurface`, and content, trust and actions arrive as the surface reaches them. The
+primitive beats in each template doc are unchanged except Precision Orbit's ring, which now
+tightens onto the avatar (avatar + 5 dp) instead of expanding. Current card/content timings:
+
+| Template | Surface | Name | Trust | Actions | Clock stops |
+|---|---|---|---|---|---|
+| Contact Ripple | 40 (reveal from contact point, 40–760) | 180 | 300 | 380 | 900 |
+| Precision Orbit | 560 (grows from the ring, 560–1000) | 700 | 780 | 860 | 1160 |
+| Line Assembly | 600–900 (fills inside the lines) | 680 | 780 | 840 | 1200 |
+| Aperture | avatar disc from 40; unfolds 520–900 | 600 | 700 | 780 | 1080 |
+| Spatial Card | 0–250 (the moving object) | 100 | 340 | 400 | 700 |
+| Minimal Fade | 40–320 | 40 | 300 | 380 | 620 |
+
 ## Reference study: "Processing animation for Light camera" (fantasy, Dribbble 3251472)
 
 The shot page could not be fetched from this container (Dribbble returns a bot challenge), so this

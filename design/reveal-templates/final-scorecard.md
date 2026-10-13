@@ -1,5 +1,9 @@
 # Reveal templates — final scorecard
 
+> These scores were given before the identity-surface redesign and are kept as the record. Since
+> then every template ends in `KipatIdentitySurface` and settles in 620–1200 ms (table in
+> `README.md`); the surface itself is scored in `design/reveal-surface/surface-scorecard.md`.
+
 Scored after implementation from the Robolectric renders of the real Compose code
 (`docs/images/reveal-templates-light.png`, `-dark.png`; regenerate with
 `./gradlew :app:testDebugUnitTest -Pkipat.screenshots=true`). Not yet seen on a phone, so motion

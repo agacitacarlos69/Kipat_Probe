@@ -44,7 +44,7 @@ Exactly one filled button per context. Everything else: text button, row, or ove
 - **Type:** system sans, weights 400 & 500 only, sentence case. Identity name 28 sp/500 is the largest type in the shell. App bar title 22 sp. Row title 16/500. Section heading 14/500 secondary, only above a list.
 - **Spacing:** 4 · 8 · 12 · 16 · 20 · 24 · 32 · 40. Gutter 16. Rows ≥ 56 dp (one-line) / 72 dp (two-line). Targets ≥ 48 dp.
 - **Radius:** 8 chips, 12 buttons/inputs/QR frame, 16 recipient card & Reveal card, 20 dialogs/sheets. Buttons are not pills. Avatars and status chips are round.
-- **Surfaces:** flat; tone steps + 1 dp dividers. The shell has **one** card: the RecipientCard preview. No shadows, glass, blur or gradients in the shell.
+- **Surfaces:** flat; tone steps + 1 dp dividers. The shell has **one** card: Profile's identity surface preview (`KipatIdentitySurface`, `inShell = true`, always edged). No shadows, glass, blur or gradients in the shell.
 - **Icons:** Material Symbols Outlined only (`KipatSymbols`). The Kipat mark appears only in the Home app bar and on the Share screen's card row.
 
 ## Motion rules
@@ -58,9 +58,10 @@ Exactly one filled button per context. Everything else: text button, row, or ove
 ## NFC Reveal rules
 
 - Own task (`taskAffinity=""`), translucent, edge-to-edge; the real previous app shows through. Never draw a fake app behind it.
-- Card is opaque (`surfaceElevated`) for legibility over any app; 16 dp radius. Card, scrim and primitive ink follow the system theme: paper scrim + graphite ink in light, graphite scrim + mist ink in dark. Accent only at completion and on Connect.
-- Order of information: avatar, name, role, organisation, trust line, actions. Identity text is in the layout from frame one (alpha only) for TalkBack.
-- Actions: Connect (primary; "Done" for an unresolved card), Save contact (Android ACTION_INSERT, one tap, no .vcf), Open profile only when there is a Kipat profile to open. A close button is always present. No "tap outside" hint text.
+- Every template settles into **`KipatIdentitySurface`** (`design/reveal-surface/`): opaque, content-height (≈ 280–370 dp), width screen − 40 dp up to 380 dp, padding 24 (20 below 340 dp). Layout and material are curated per template (`RevealPresentation`); never add free combinations. Surface, backdrop and primitive ink follow the system theme. Accent only on Connect, the monogram, completion details and selection.
+- The surface must look finished as a still: judge it with `IdentitySurfaceRenderTest` renders, not the animation. Content arrives as the surface reaches it; never an empty card waiting for text or buttons.
+- Order of information: anchor (photo / logo / accent monogram — never a grey disc), name 22–24 sp, role then organisation (quieter), trust row (glyph + words, demo chip on the same row, detail only when something is wrong), rule, actions. Identity text is in the layout from frame one (alpha only) for TalkBack.
+- Actions: Connect (filled, 48 dp; "Done" for an unresolved card; "Connected" = accent tint), then Save contact (Android ACTION_INSERT) / Open profile (only when there is a Kipat profile to open) as a light icon + label row. Never stacked outlined buttons. Close: 48 dp target, quiet 20 dp ✕, same top-end corner in every layout. No "tap outside" hint text.
 - Never record a tap of your own card as someone you met; never turn a tap into a connection without an explicit Connect.
 - No network before the first frame. Haptic on first frame; a second, calm haptic only when the card is verified.
 - Demo/sample data says "Sample data" on its own line. Debug sources are not shown in the card.

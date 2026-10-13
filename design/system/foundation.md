@@ -37,7 +37,11 @@ so a person's Kipat always looks like Kipat. It carries meaning: it marks *the a
 | verified | #16794A | #5BC48C | Verified seal + text |
 | warning | #8A5A00 | #E0A645 | Unverified |
 | revoked | #B42318 | #F2766B | Revoked / error |
-| scrim (Reveal) | #F6F6F4 @ 72%→94% | #0E0F12 @ 60%→86% | Over the previous app; follows the theme |
+| backdrop (Reveal) | #E4E4DF @ 72%→92% | #0B0C0E @ 62%→88% | Over the previous app; a step darker than every light surface |
+| identity surface — paper | #FCFCFA + 1 dp #DEDED9 | #1F2023 + 1 dp #34363C | Minimal Fade, Precision Orbit, Aperture |
+| identity surface — tonal | #F7F5F0 (no edge) | #232428 + 1 dp #34363C | Contact Ripple |
+| identity surface — structural | #FCFCFA + 1 dp #8A8D95, radius 12 | #1F2023 + 1 dp #737680, radius 12 | Line Assembly |
+| identity surface — floating | #FFFFFF + 1 dp #E4E4E0 | #26272B + 1 dp #34363C | Spatial Card |
 | ink (Reveal primitives) | #17181C | #EDEDEF | Arcs, rings, lines, blades — one ink, no gradients |
 
 Share of accent on any screen ≤ 10% of pixels.
@@ -133,7 +137,11 @@ Template timelines: `docs/reveal.md` and `design/reveal-templates/`.
 ## Components
 
 - **IdentityBlock** — avatar + name + lines + trust, on the page (no container).
-- **RecipientCard** — the single card: what a recipient sees (Profile preview, Reveal).
+- **KipatIdentitySurface** — the single card: what a recipient sees (Reveal, and Profile's "How
+  others see you"). Identity, context, trust row, attached actions; see `docs/reveal.md`. Primary,
+  secondary and tertiary ink measure ≥ 4.5:1 on every treatment (lowest: tertiary on dark
+  floating, 4.60).
+- **RecipientCard** — legacy container kept for the Home/Person identity previews.
 - **PersonRow** — M3 two-line list item: avatar 40, name, "Role, Organisation", trailing time.
 - **ActionRow** — leading symbol, label, optional value, trailing chevron.
 - **TrustLine** — seal/glyph + words, colour by state; demo shown as a separate "Sample data" line.
