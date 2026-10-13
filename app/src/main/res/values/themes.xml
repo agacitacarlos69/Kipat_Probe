@@ -1,28 +1,29 @@
-<resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme (Material3 DayNight) -->
-    <style name="Base.Theme.KipatBackdropProbe" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Brand Colors -->
-        <item name="colorPrimary">#6750A4</item>
-        <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="colorPrimaryContainer">#EADDFF</item>
-        <item name="colorOnPrimaryContainer">#21005D</item>
-
-        <!-- Secondary & Surface Colors -->
-        <item name="colorSecondary">#625B71</item>
-        <item name="colorOnSecondary">#FFFFFF</item>
+<resources>
+    <!-- Window-level themes only; all UI styling lives in Compose (ui/theme). -->
+    <style name="Theme.Kipat" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/kipat_window</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
 
-    <style name="Theme.KipatBackdropProbe" parent="Base.Theme.KipatBackdropProbe" />
-
-    <!-- Translucent Theme for ADB Deep-Link / Tap Experience Overlay -->
-    <style name="Theme.AppCompat.Translucent" parent="Theme.Material3.DayNight.NoActionBar">
+    <!-- Translucent Reveal overlay: the previous app stays visible beneath; Compose draws the scrim. -->
+    <style name="Theme.Kipat.Reveal" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowContentOverlay">@null</item>
         <item name="android:windowNoTitle">true</item>
-        <item name="android:backgroundDimEnabled">true</item>
-        <item name="android:backgroundDimAmount">0.5</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowAnimationStyle">@style/Animation.Kipat.Reveal</item>
+    </style>
+
+    <style name="Animation.Kipat.Reveal" parent="@android:style/Animation.Activity">
+        <item name="android:activityOpenEnterAnimation">@android:anim/fade_in</item>
+        <item name="android:activityOpenExitAnimation">@android:anim/fade_out</item>
+        <item name="android:activityCloseEnterAnimation">@android:anim/fade_in</item>
+        <item name="android:activityCloseExitAnimation">@android:anim/fade_out</item>
+        <item name="android:taskOpenEnterAnimation">@android:anim/fade_in</item>
+        <item name="android:taskCloseExitAnimation">@android:anim/fade_out</item>
     </style>
 </resources>

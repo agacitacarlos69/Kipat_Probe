@@ -1,21 +1,7 @@
-<resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Dark Mode Base Theme -->
-    <style name="Base.Theme.KipatBackdropProbe" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">#D0BCFF</item>
-        <item name="colorOnPrimary">#381E72</item>
-        <item name="colorPrimaryContainer">#4F378B</item>
-        <item name="colorOnPrimaryContainer">#EADDFF</item>
-
+<resources>
+    <style name="Theme.Kipat" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/kipat_window</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:windowLightStatusBar">false</item>
-    </style>
-
-    <!-- Translucent Theme for Dark Mode -->
-    <style name="Theme.AppCompat.Translucent" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="android:windowIsTranslucent">true</item>
-        <item name="android:windowBackground">@android:color/transparent</item>
-        <item name="android:windowNoTitle">true</item>
-        <item name="android:backgroundDimEnabled">true</item>
-        <item name="android:backgroundDimAmount">0.6</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
 </resources>
