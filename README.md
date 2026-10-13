@@ -16,7 +16,7 @@ migrated, not discarded.
 | Area | Status |
 |---|---|
 | 3-tab shell (Home, Connections, Profile) + Share | Working — Quiet Graphite design system, Compose + Material 3, edge-to-edge, per-tab state saved/restored, light & dark |
-| Reveal (`TapExperienceActivity`) | Working — translucent, own task, dynamic payload, 10-template catalog (3 fully choreographed), reduced-motion and low-end fallbacks |
+| Reveal (`TapExperienceActivity`) | Working — translucent, own task, dynamic payload, six-template family (Contact Ripple default; Precision Orbit, Line Assembly, Aperture, Spatial Card, Minimal Fade), Preview-before-Apply picker, per-template reduced-motion equivalents |
 | Preview / Replay Reveal | Working — Home, Profile and Connections launch the same renderer |
 | Debug deep link `kipatprobe://tap/…` | Working — routes into the Reveal |
 | Kipat Card NFC tap → Reveal | Implemented (NDEF filter + parser + resolver); **not yet tested on a physical device** |

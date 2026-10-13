@@ -50,13 +50,15 @@ Exactly one filled button per context. Everything else: text button, row, or ove
 ## Motion rules
 
 - Shell: tab fade ≤ 150 ms, push/pop 250 ms; no ambient or decorative motion.
-- Reveal: contact ring at the card's top edge (0–300 ms) → scrim deepens → cobalt hairline traces the card edge from the top centre outward → card resolves (opacity + 0.98→1, 500–800 ms) → avatar 700 → name 850 (clip-reveal) → lines 950 → trust 1100 → actions 1250; settled 1550 ms. **No particles, glow, drip, gradients or bloom in the Signature Reveal.**
-- Reduced motion (`ValueAnimator.areAnimatorsEnabled() == false`): one 200 ms fade; all content readable immediately.
+- Reveal: six templates (`design/reveal-templates/`): Contact Ripple (default), Precision Orbit, Line Assembly, Aperture, Spatial Card, Minimal Fade (low-power). Each = **one primary motion + surface resolve + text staging**, nothing else. No particles, glow, gradients, blur, bloom, loops or sound in any template. Every template settles once (no overshoot) in ≤ 1.4 s, name readable by ~1.1 s.
+- Motion curves (`KipatEasing`): M3 standard (contact marks, small fades), M3 emphasized decelerate (anything entering), M3 emphasized (a template's one geometric move), M3 emphasized accelerate (primitives leaving), spring ζ 0.9 / k 300 (Spatial Card only).
+- A new template must: reuse `RevealStage`/`IdentityBlock`, add one `EntryPrimitive`, have a design doc with the 16-question review and a slop risk ≤ 2, a reduced-motion equivalent, light + dark previews, and a gallery render.
+- Reduced motion (`ValueAnimator.areAnimatorsEnabled() == false`): each template's own 200 ms equivalent (static ring, dot acknowledgement, perimeter fade, scale-fade, crossfade); nothing moves, tilts or masks; all content readable immediately.
 
 ## NFC Reveal rules
 
 - Own task (`taskAffinity=""`), translucent, edge-to-edge; the real previous app shows through. Never draw a fake app behind it.
-- Card is opaque (`surfaceElevated`) for legibility over any app; 16 dp radius; follows system light/dark. Scrim is always dark.
+- Card is opaque (`surfaceElevated`) for legibility over any app; 16 dp radius. Card, scrim and primitive ink follow the system theme: paper scrim + graphite ink in light, graphite scrim + mist ink in dark. Accent only at completion and on Connect.
 - Order of information: avatar, name, role, organisation, trust line, actions. Identity text is in the layout from frame one (alpha only) for TalkBack.
 - Actions: Connect (primary; "Done" for an unresolved card), Save contact (Android ACTION_INSERT, one tap, no .vcf), Open profile only when there is a Kipat profile to open. A close button is always present. No "tap outside" hint text.
 - Never record a tap of your own card as someone you met; never turn a tap into a connection without an explicit Connect.
@@ -77,7 +79,7 @@ M3 components (TopAppBar, NavigationBar, ListItem-style rows, AlertDialog, Dropd
 
 ## Anti-AI-slop rules (reject on sight)
 
-Card inside card · a card around two lines of text · 28 dp+ radii · pill buttons · glowing or gradient borders · gradient washes · cyan/violet palette · blue-tinted near-black · greeting dashboards ("Good afternoon, …") · feature tiles / carousels of options · fake metrics · status pills everywhere · decorative icons in headings · tracked ALL-CAPS eyebrows · `A · B · C` meta strings · monospace data labels (outside Developer tools) · ambient pulsing animation · particles outside the Reveal (and inside the Signature Reveal) · glass in the shell · bottom sheet on every row tap · segmented controls for rarely-changed settings · iOS patterns (centered modal with "tap outside", segmented filters) · Higgsfield or any generator inventing layout or text.
+Card inside card · a card around two lines of text · 28 dp+ radii · pill buttons · glowing or gradient borders · gradient washes · cyan/violet palette · blue-tinted near-black · greeting dashboards ("Good afternoon, …") · feature tiles / carousels of options · fake metrics · status pills everywhere · decorative icons in headings · tracked ALL-CAPS eyebrows · `A · B · C` meta strings · monospace data labels (outside Developer tools) · ambient pulsing animation · particles anywhere (including the Reveal) · spinners or looping motion · 3D beyond a 6° tilt · glass in the shell · bottom sheet on every row tap · segmented controls for rarely-changed settings · iOS patterns (centered modal with "tap outside", segmented filters) · Higgsfield or any generator inventing layout or text.
 
 ## Do / don't examples
 
@@ -91,6 +93,10 @@ Card inside card · a card around two lines of text · 28 dp+ radii · pill butt
 ## Higgsfield rules
 
 Higgsfield explores card material and Reveal motion only — never layout, IA, typography or copy.
+Generate isolated components (no phone, no scene) on transparent or perfectly uniform backgrounds;
+prefer GPT Image 2.5 `background=transparent` at medium (0.5 credit) for stills; one Seedance job
+at a time on Basic. References are recreated procedurally in Compose, never shipped
+(`design/higgsfield/critique-v3.md`).
 Prompts must forbid all text/letters/numbers and represent content with blank bars and an avatar
 circle. Generated output is critiqued (`design/higgsfield/critique-v2.md`) before anything is
 adopted; it is never bundled in the APK.

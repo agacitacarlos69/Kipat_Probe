@@ -3,10 +3,12 @@
 One renderer (`RevealScreen`) serves every entry point: NFC tag, debug deep link, Preview
 (Home/Profile) and Replay (Connections).
 
-![Signature Reveal frames — 120, 400, 600, 900, 1150 ms and settled, light theme (Robolectric renders of the Compose runtime)](images/reveal-strip.png)
+![The six Reveal templates at 100, 250, 450, 700 ms and settled, light theme (Robolectric renders of the Compose runtime)](images/reveal-templates-light.png)
 
-*Frames above are JVM (Robolectric) renders of the real Compose code, not Higgsfield output and
-not device captures.*
+*Rows top to bottom: Contact Ripple, Precision Orbit, Line Assembly, Aperture, Spatial Card,
+Minimal Fade. JVM (Robolectric) renders of the real Compose code, not Higgsfield output and not
+device captures; the scrim sits over a blank window here, not a real app. Dark theme:
+[images/reveal-templates-dark.png](images/reveal-templates-dark.png).*
 
 ## Payload
 
@@ -18,50 +20,64 @@ primary/secondary CTA labels, connectable.
   per-process nonce**. Extras without the nonce are ignored, so another app cannot launch a
   spoofed "Verified" Reveal through the exported activity.
 - `RevealPayloadCodec.decode` never throws: blank name → "Kipat card", unknown template →
-  Signature, unknown authenticity → UNKNOWN, invalid card id / non-https/content avatar → dropped,
+  the default template (legacy v1/v2 IDs map to the closest current template), unknown authenticity → UNKNOWN, invalid card id / non-https/content avatar → dropped,
   text sanitized and clamped.
 - A tag/link that can't be resolved shows a neutral "Kipat card · Card ID" shell, "Not verified",
   and a *Done* button (no Connect).
 
 ## Templates
 
-| Template | Implementation |
-|---|---|
-| Signature (default) | **Full** — one contact ring at the card's top edge, a cobalt line tracing the card from that point down both sides, opaque card (opacity + 0.98→1), name clip-reveal. No particles, glow or drip |
-| Particle Bloom | **Full** — opt-in; dots spread out and settle around the card |
-| Minimal | **Full** — quick quiet fade, no effects |
-| Ripple, Orbit, Soft Glow, Liquid Logo, Line Trace, Pixel Build, Constellation | Parameterised on the same primitives (`RevealConfig`) |
+Six interpretations of one card (design: `design/reveal-templates/`). Each has exactly **one primary
+motion**, plus the surface resolving and text staging. Shared: `RevealStage` (one renderer),
+`effects/RevealEffects.kt` (one file of primitives), `IdentityBlock` and `RevealActions`.
 
-All templates share `effects/RevealEffects.kt`; there are no per-template engines.
+| Template (wire ID) | Primary motion | Surface | Name | Settled |
+|---|---|---|---|---|
+| **Contact Ripple** (`ripple`, default) | Contact dot; one ring from the card's top centre is the edge of a circular reveal; a fainter second ring | circular reveal | fade | 1220 ms |
+| Precision Orbit (`orbit`) | Two symmetric arcs turn 90° once, close into a ring around the avatar, turn accent, settle as a 1 dp frame | fade + 0.99→1 | wipe | 1400 ms |
+| Line Assembly (`lines`) | Accent corner mark; top and left drafting lines drawn with 12 dp overshoot; right and bottom fade in; lines leave | fade | wipe | 1400 ms |
+| Aperture (`aperture`) | Six flat blades over the avatar turn −5°, open to the rim (+12°), fade as slivers; ≤ 600 ms on screen | fade | fade | 1240 ms |
+| Spatial Card (`spatial`) | Card arrives tilted 6° (pivot: bottom edge) showing a 3 dp edge; settles flat on a ζ 0.9 spring; shadow forms (light) | tilt | fade | 1200 ms |
+| Minimal Fade (`minimal-fade`, low-power) | None: fade + 10 dp rise | fade-rise | fade | 620 ms |
+
+Legacy IDs on already-written cards: `drip`, `particle-bloom`, `soft-glow`, `liquid-logo`,
+`pixel-build`, `constellation` → default; `line-trace` → Line Assembly.
+
+Colour: one ink per theme for every primitive (graphite on a paper scrim in light, mist on a
+graphite scrim in dark); the person's accent only at completion (orbit ring, corner mark) and on
+Connect. No particles, glow, gradients, blur or sound in any template.
+
+**Picker** (Profile → Reveal style): each row shows a static thumbnail drawn with the template's
+own primitives at its key frame, the name and one line of character. Tapping a row only selects;
+**Preview** plays the selection on your own card; **Apply** makes it what others see. Accent works
+the same way.
+
+<img src="images/reveal-style-picker.png" width="300" alt="Reveal style picker: six templates with thumbnails, Preview and Apply">
 
 ## Timeline (product targets, not measurements)
 
-Signature v2 (derived from `design/higgsfield/critique-v2.md`):
-
-| ms | Beat |
-|---|---|
-| 0 | first frame: scrim fades to 55%; contact ring at the card's top edge; start haptic |
-| 300–650 | edge trace runs from the contact point down both sides |
-| 500–800 | card surface resolves; scrim deepens to 82% |
-| 700 | avatar |
-| 850 | name (left-to-right clip reveal) |
-| 950 | role / organisation |
-| 1100 | trust line (verified haptic only if AUTHENTIC) |
-| 1250 | actions; settled at 1550 |
+Per-template beats are in each `design/reveal-templates/<template>.md`; card/text timing is
+`RevealTimeline`. Motion curves (`KipatEasing`): M3 standard, M3 emphasized decelerate, M3
+emphasized, M3 emphasized accelerate, and a 0.9-damped spring (stiffness 300) for Spatial Card.
+Nothing overshoots visibly.
 
 Actions: **Connect** (primary; "Done" for an unresolved card), **Save contact** (Android contact
 editor via ACTION_INSERT), **Open profile** (only when there is a Kipat profile to open: an
-existing connection or your own preview). The card follows the system light/dark theme; the
-scrim is always graphite.
+existing connection or your own preview). Card, scrim and ink follow the system light/dark theme.
 
 The spec's "0–100 ms activity launch" target is **not** claimed. The earlier OPPO probe measured
 ~190 ms warm launch; nothing has been measured on a device for this build.
 
 ## Fallbacks
 
-- **Reduced motion** (`ValueAnimator.areAnimatorsEnabled() == false`): no ring/trace/particles,
-  one 200 ms fade, everything readable immediately.
-- **Low-end** (low-RAM flag or ≤ 4 cores): ≤ 12 particles and 1 ripple for templates that use them (Signature has neither).
+- **Reduced motion** (`ValueAnimator.areAnimatorsEnabled() == false`): each template's own
+  equivalent, all 200 ms and readable from the first frame: Contact Ripple → the contact dot
+  fades in and out once; Precision Orbit → the settled ring fades in; Line Assembly → the four
+  lines fade out; Aperture and Minimal Fade → crossfade; Spatial Card → 0.98→1 scale + opacity.
+  Nothing moves, rotates, masks or tilts.
+- **Low-end** (low-RAM flag or ≤ 4 cores): same choreography (every primitive is a handful of
+  draw calls, no offscreen buffers, no per-frame allocation); the animated shadow is skipped.
+  Minimal Fade is the recommended low-power template.
 - Rotation: elapsed time is saved, the Reveal resumes rather than replays.
 - Home/app switch: activity finishes in `onStop`.
 - Duplicate NFC scan of the same card within 1.5 s: ignored.
@@ -72,7 +88,7 @@ The spec's "0–100 ms activity launch" target is **not** claimed. The earlier O
 
 `RevealTrace` logs to `KipatReveal` and emits `android.os.Trace` sections:
 `activity_create` (with `launch→create` for in-app launches), `content_set`, `first_frame`,
-`first_reveal_visual`, `reveal_complete`. Profile → Developer tools lists this session's
+`first_reveal_visual`, `identity_readable` (name and role fully shown), `reveal_complete`. Profile → Developer tools lists this session's
 measurements. Use Perfetto on real devices for authoritative numbers.
 
 ## Smoke tests

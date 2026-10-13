@@ -8,11 +8,11 @@ the only shared dependency).
 | Package | Responsibility | Android-free? |
 |---|---|---|
 | `model/` | Identity, profile fields/templates, connections, card, taps, authenticity + its presentation, profile validation | Yes |
-| `reveal/RevealTemplate.kt`, `RevealEngine.kt`, `RevealPayload.kt` | Template catalog, `RevealConfig`, `RevealTimeline`, frame math, payload + Intent codec | Yes |
+| `reveal/RevealTemplate.kt`, `RevealEngine.kt`, `RevealPayload.kt`, `RevealStyleDraft.kt` | Six-template family and its `RevealChoreography`, `RevealTimeline`, Kipat motion curves, frame math, payload + Intent codec, picker draft | Yes |
 | `nfc/NfcIntentParser.kt`, `NfcStatus.kt` | Kipat URI parsing, tag URI builder, write states | Yes |
 | `data/` | `SampleData`, `KipatRepository` (StateFlows), `RevealResolver` (tap → payload) | Yes |
 | `nfc/NfcTagWriter.kt`, `NfcWriteController.kt`, `NfcIntents.kt` | Android NFC I/O and foreground dispatch | No |
-| `reveal/RevealScreen.kt`, `effects/`, `RevealRuntime.kt` | Compose renderer, Canvas primitives, launcher, quality policy, haptics, trace | No |
+| `reveal/RevealScreen.kt` (`RevealScreen` clock + stateless `RevealStage`), `effects/`, `RevealTemplateGlyph.kt`, `RevealRuntime.kt` | Compose renderer, the six Canvas primitives, picker thumbnails, launcher, quality policy, haptics, trace | No |
 | `ui/theme`, `ui/components`, `ui/screens`, `navigation/` | Design system and screens | No |
 
 The Android-free layers are what the JVM unit tests cover.

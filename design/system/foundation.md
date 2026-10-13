@@ -37,7 +37,8 @@ so a person's Kipat always looks like Kipat. It carries meaning: it marks *the a
 | verified | #16794A | #5BC48C | Verified seal + text |
 | warning | #8A5A00 | #E0A645 | Unverified |
 | revoked | #B42318 | #F2766B | Revoked / error |
-| scrim (Reveal) | #0E0F12 @ 55%→82% | same | Over the previous app |
+| scrim (Reveal) | #F6F6F4 @ 72%→94% | #0E0F12 @ 60%→86% | Over the previous app; follows the theme |
+| ink (Reveal primitives) | #17181C | #EDEDEF | Arcs, rings, lines, blades — one ink, no gradients |
 
 Share of accent on any screen ≤ 10% of pixels.
 
@@ -96,7 +97,7 @@ Buttons are **not** pills.
 
 Default flat. Hierarchy by tone (background → surface → surfaceSecondary) and 1 dp dividers. No
 shadows in the shell. The Reveal card is the only elevated surface (opaque surfaceElevated, a
-single soft shadow, 1 dp divider-coloured border). No glass, no blur, no gradients anywhere in the
+single soft shadow in light mode, 1 dp divider-coloured border). No glass, no blur, no gradients anywhere in the
 shell.
 
 ## Iconography
@@ -115,7 +116,19 @@ The Kipat mark (dot + arcs) appears only in the Home app bar and nowhere else in
 | tab change | fade 150 | — |
 | push / pop | 250 slide 1/8 + fade | emphasized |
 
-No ambient animation in the shell. The Reveal timeline is in `docs/reveal.md`.
+No ambient animation in the shell.
+
+Reveal motion curves (`reveal/RevealEngine.kt`, `KipatEasing`), from Material 3:
+
+| Token | Curve | Use |
+|---|---|---|
+| Fast | standard `cubic(0.2, 0, 0, 1)` | Contact marks, small fades, ripple |
+| Standard | emphasized decelerate `cubic(0.05, 0.7, 0.1, 1)` | Card surface and text entering |
+| Emphasized | M3 emphasized (two-segment path) | A template's one geometric move |
+| Exit | emphasized accelerate `cubic(0.3, 0, 0.8, 0.15)` | Primitives leaving |
+| Settle | spring ζ 0.9, stiffness 300 | Spatial Card tilt only |
+
+Template timelines: `docs/reveal.md` and `design/reveal-templates/`.
 
 ## Components
 

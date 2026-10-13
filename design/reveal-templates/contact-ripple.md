@@ -9,7 +9,7 @@ and the card surface is revealed inside it, like a still surface touched once.
 been since v2 (the card's top centre), so the motion names the cause of the Reveal.
 
 **KEY FRAME 1 (0–150 ms)** A 2.5 dp contact dot at the card's top centre; the first ring leaves it.
-**KEY FRAME 2 (~400 ms)** The ring is the moving edge of a circular reveal: inside it the card,
+**KEY FRAME 2 (~250 ms)** The ring is the moving edge of a circular reveal: inside it the card,
 avatar and name; outside it the scrim. A second, fainter ring follows.
 **KEY FRAME 3 (1220 ms)** Full card, trust, actions. Rings gone.
 
@@ -17,10 +17,10 @@ avatar and name; outside it the scrim. A second, fainter ring follows.
 
 | ms | Beat | Curve |
 |---|---|---|
-| 0–100 | Contact dot in (fades out 100–300) | KipatFast |
-| 40–640 | Ring A, radius 0 → farthest card corner; it is the edge of the card's circular reveal | KipatStandard |
+| 0–100 | Contact dot in, above the card's top edge (fades out 160–360) | KipatFast |
+| 40–760 | Ring A, radius 0 → farthest card corner; it is the edge of the card's circular reveal | KipatFast |
 | 40–160 | Card layer opacity 0→1 (inside the reveal) | KipatFast |
-| 200–900 | Ring B, 1.25× radius, 40% → 0 opacity, 1 dp | KipatStandard |
+| 200–900 | Ring B, 1.25× radius, 40% → 0 opacity, 1 dp | KipatFast |
 | 260 / 340 / 420 | Avatar / name / role fade in as the reveal passes | KipatStandard |
 | 760 | Trust line | KipatStandard |
 | 920–1220 | Actions; settled at 1220 | KipatStandard |
@@ -47,3 +47,10 @@ completes the gesture · 8 Mid-range: yes · 9 Reduced: dot acknowledgement · 1
 | Clarity | NFC | Original | Professional | Minimal | Motion | Perf | A11y | Feasible | Slop risk |
 |---|---|---|---|---|---|---|---|---|---|
 | 5 | 5 | 3 | 5 | 4 | 4 | 5 | 5 | 5 | 2 |
+
+## Revision after the first render review
+
+The first build used KipatStandard (emphasized decelerate) for the reveal: the card was ~60%
+uncovered by 100 ms and read as a wipe, and the contact dot was hidden because it was drawn under
+the card. Revised: M3 standard curve over 720 ms, dot drawn above the card's edge. Contact → ring →
+surface is now legible at 100 / 250 / 450 ms (`docs/images/reveal-templates-light.png`, row 1).
