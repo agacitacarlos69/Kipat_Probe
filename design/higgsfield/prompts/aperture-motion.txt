@@ -1,0 +1,24 @@
+Create an isolated geometric UI motion primitive for an Android NFC identity system.
+
+No screen. No phone. No text. No icon. No branding. No environment.
+
+A centered abstract aperture made of 5 simple flat geometric blades. This is NOT a realistic camera lens.
+
+Start nearly closed.
+
+Motion: small contact response → blades rotate apart approximately 10–15 degrees → central negative space becomes visible → geometry holds briefly → blades softly reduce opacity.
+
+Total duration: 0.8–1.1 seconds.
+
+Visual language: Swiss precision, industrial product design, minimal monochrome geometry, flat, professional, restrained.
+
+Use: graphite, off-white, optional tiny cool-blue accent.
+
+No: metal, glass, photorealism, reflections, camera hardware, neon, purple, particles, glow, HUD, 3D environment, letters, text, numbers, logos.
+
+Transparent background if supported. Otherwise use a perfectly uniform removable background.
+
+Locked orthographic-style camera. Make the motion look like a native coded interface primitive.
+
+--- STILL (Phase C, GPT Image 2.5, transparent) ---
+Three states of one flat geometric iris made of six identical flat graphite (#17181C) blades inside a circle, left to right on a transparent background, identical size and position in each third: (1) fully closed, the blades meet at the exact centre, thin hairline seams between blades; (2) the blades rotated about 8 degrees and half open, a clean regular hexagonal opening in the centre showing empty transparent space; (3) almost fully open, only thin slivers of blade at the circle's edge. Flat vector, solid fills, perfectly sharp edges, no shading, no metal, no lens, no reflections, no glow, no shadow, no text, no numbers, no background.

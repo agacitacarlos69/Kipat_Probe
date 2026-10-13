@@ -1,0 +1,25 @@
+Create an extremely simple thin digital identity slab for motion reference.
+
+It is NOT a real credit card. NOT a bank card. NOT a business card mockup. It is an abstract UI surface.
+
+Geometry: very thin rounded rectangular plane, subtle 12–16dp-equivalent corner character, flat front, very shallow thickness, no embossed details, no letters, no numbers, no logos, no texture.
+
+Material: matte graphite or soft neutral polymer, extremely restrained surface response, no metallic finish, no iridescence, no holographic effect.
+
+The goal is to study: edge thickness, small perspective movement, light falloff, subtle physicality — not decoration.
+
+Create a neutral orthographic/near-orthographic presentation.
+
+If animation is supported: start nearly edge-on, rotate only 3–5 degrees toward viewer, settle completely flat.
+
+No spinning. No floating. No camera orbit. No dramatic lighting. No environment.
+
+Transparent background or neutral isolated background.
+
+--- STILL (Phase C, GPT Image 2.5, transparent) ---
+Two views of the same blank matte off-white rounded rectangular slab, proportions 1.6:1, corner radius about 5% of its width, thickness about 1% of its width, on a transparent background, no text, no logos, no numbers, no texture: left, tilted back 6 degrees from face-on so the top edge is very slightly narrower and a thin light-grey bottom edge is visible, with a faint soft contact shadow below; right, perfectly face-on and flat, no edge visible, a soft even shadow beneath. Orthographic, neutral even studio light, no gloss, no reflections, no metal, no gradient background, no environment.
+
+--- 3D decision ---
+Basic plan exposes Text to 3D (tripo_3d, 5 credits) and Hunyuan 3D (7 credits). Not run: the
+question (edge thickness and light fall-off at a 6° tilt) is answered by one 0.5-credit still, and
+the runtime will be a graphicsLayer rotationX in either case, so a mesh would not change the build.

@@ -1,0 +1,26 @@
+Create an isolated minimalist motion-design element for a professional Android NFC identity application.
+
+NO PHONE. NO USER INTERFACE. NO TEXT. NO WORDS. NO NUMBERS. NO LOGO. NO DEVICE MOCKUP. NO HANDS. NO SCENE.
+
+Only one centered kinetic geometric object.
+
+The object begins as two incomplete fine circular arcs.
+
+Motion: a tiny central contact pulse, the two arcs rotate smoothly by a restrained short distance, their geometry aligns, the ring becomes visually complete, the complete circle expands by a very small amount, then settles.
+
+Duration: approximately 1.2 seconds.
+
+Motion character: precise, mechanical, quiet, professional, high-end industrial design, confident, minimal.
+
+Visual treatment: thin geometry, off-white / graphite, optional tiny restrained cobalt accent only at completion, clean edges, no bloom.
+
+Background: transparent if supported. Otherwise: perfectly uniform removable background with zero texture.
+
+STRICTLY NO: loading-spinner loop, neon, glow, particles, smoke, lens flare, gradient orb, 3D chrome, cyberpunk, hologram, camera, phone, UI, text, letters, icons, environment.
+
+The animation must look like a coded procedural UI primitive, not a cinematic AI video.
+
+Locked camera. No camera movement. No depth-of-field. No motion blur unless extremely subtle.
+
+--- STILL (Phase C, GPT Image 2.5, transparent) ---
+Three states of one geometric UI primitive, left to right, evenly spaced on a transparent background, identical size and position in each third: (1) a tiny solid graphite dot with two thin graphite circular arcs around it, each arc about 100 degrees, opposite each other, with large gaps; (2) the same two arcs rotated a quarter turn clockwise, each now about 160 degrees, gaps almost closed, dot gone; (3) one complete thin circle, very slightly larger, in a restrained cobalt blue (#2747C8), perfectly even 2 px stroke. Flat vector, hairline strokes, no shading, no glow, no gradient, no shadow, no text, no numbers, no labels, no arrows, no background.

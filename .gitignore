@@ -9,4 +9,5 @@ captures/
 # Higgsfield / tooling output that must never be committed
 *.mp4
 *.mov
+*.webm
 .higgsfield/
