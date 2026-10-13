@@ -1,0 +1,12 @@
+.gradle/
+.kotlin/
+build/
+local.properties
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+# Higgsfield / tooling output that must never be committed
+*.mp4
+*.mov
+.higgsfield/
