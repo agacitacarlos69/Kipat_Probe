@@ -30,6 +30,7 @@ so a person's Kipat always looks like Kipat. It carries meaning: it marks *the a
 | textSecondary | #4E525B | #A9ACB3 | Roles, supporting lines |
 | textTertiary | #6A6E78 | #8B8F98 | Timestamps, hints |
 | divider | #E2E2DE | #2B2C30 | 1 dp rules (decorative, non-text) |
+| outline | #8A8D95 | #737680 | Secondary-button and field borders (≥ 3:1 non-text) |
 | accent | #2747C8 | #9DB0FF | Share button, selected tab, links, contact line |
 | onAccent | #FFFFFF | #0F1A45 | Text on accent |
 | accentContainer | #E5E9FA | #222B4D | Selected nav indicator, selected option |
@@ -53,6 +54,7 @@ Share of accent on any screen ≤ 10% of pixels.
 | verified / background | 5.02 | 8.53 |
 | warning / background | 5.48 | 8.52 |
 | revoked / background | 6.08 | 6.65 |
+| outline / surface (non-text, needs 3:1) | 3.32 | 3.29 (on elevated) |
 
 ## Typography
 

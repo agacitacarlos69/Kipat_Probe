@@ -3,7 +3,7 @@
 One renderer (`RevealScreen`) serves every entry point: NFC tag, debug deep link, Preview
 (Home/Profile) and Replay (Connections).
 
-![Signature Reveal frames — 150, 350, 700, 1050, 1600 ms and settled (Robolectric renders of the Compose runtime)](images/reveal-strip.png)
+![Signature Reveal frames — 120, 400, 600, 900, 1150 ms and settled, light theme (Robolectric renders of the Compose runtime)](images/reveal-strip.png)
 
 *Frames above are JVM (Robolectric) renders of the real Compose code, not Higgsfield output and
 not device captures.*
@@ -27,33 +27,41 @@ primary/secondary CTA labels, connectable.
 
 | Template | Implementation |
 |---|---|
-| Signature · Drip | **Full** — glow, 2 ripples, drip bead, 44 converging particles, soft outline trace, rise entrance |
-| Particle Bloom | **Full** — outward bloom settling into a halo |
-| Minimal Fade | **Full** — fast fade timeline, no particles |
+| Signature (default) | **Full** — one contact ring at the card's top edge, a cobalt line tracing the card from that point down both sides, opaque card (opacity + 0.98→1), name clip-reveal. No particles, glow or drip |
+| Particle Bloom | **Full** — opt-in; dots spread out and settle around the card |
+| Minimal | **Full** — quick quiet fade, no effects |
 | Ripple, Orbit, Soft Glow, Liquid Logo, Line Trace, Pixel Build, Constellation | Parameterised on the same primitives (`RevealConfig`) |
 
 All templates share `effects/RevealEffects.kt`; there are no per-template engines.
 
 ## Timeline (product targets, not measurements)
 
+Signature v2 (derived from `design/higgsfield/critique-v2.md`):
+
 | ms | Beat |
 |---|---|
-| 0 | first frame: scrim (60%, deepening as the card resolves), glow, ripple; start haptic |
-| 200 | glow peak, particles begin |
-| 600 | card surface + avatar |
-| 900 | name |
-| 1200 | role / organization |
-| 1500 | authenticity badge (verified haptic only if AUTHENTIC) |
-| 1800 | CTAs ready |
+| 0 | first frame: scrim fades to 55%; contact ring at the card's top edge; start haptic |
+| 300–650 | edge trace runs from the contact point down both sides |
+| 500–800 | card surface resolves; scrim deepens to 82% |
+| 700 | avatar |
+| 850 | name (left-to-right clip reveal) |
+| 950 | role / organisation |
+| 1100 | trust line (verified haptic only if AUTHENTIC) |
+| 1250 | actions; settled at 1550 |
+
+Actions: **Connect** (primary; "Done" for an unresolved card), **Save contact** (Android contact
+editor via ACTION_INSERT), **Open profile** (only when there is a Kipat profile to open: an
+existing connection or your own preview). The card follows the system light/dark theme; the
+scrim is always graphite.
 
 The spec's "0–100 ms activity launch" target is **not** claimed. The earlier OPPO probe measured
 ~190 ms warm launch; nothing has been measured on a device for this build.
 
 ## Fallbacks
 
-- **Reduced motion** (`ValueAnimator.areAnimatorsEnabled() == false`): no particles/ripples,
+- **Reduced motion** (`ValueAnimator.areAnimatorsEnabled() == false`): no ring/trace/particles,
   one 200 ms fade, everything readable immediately.
-- **Low-end** (low-RAM flag or ≤ 4 cores): ≤ 12 particles, 1 ripple, dimmer glow.
+- **Low-end** (low-RAM flag or ≤ 4 cores): ≤ 12 particles and 1 ripple for templates that use them (Signature has neither).
 - Rotation: elapsed time is saved, the Reveal resumes rather than replays.
 - Home/app switch: activity finishes in `onStop`.
 - Duplicate NFC scan of the same card within 1.5 s: ignored.
@@ -64,7 +72,7 @@ The spec's "0–100 ms activity launch" target is **not** claimed. The earlier O
 
 `RevealTrace` logs to `KipatReveal` and emits `android.os.Trace` sections:
 `activity_create` (with `launch→create` for in-app launches), `content_set`, `first_frame`,
-`first_reveal_visual`, `reveal_complete`. Touch → Developer diagnostics lists this session's
+`first_reveal_visual`, `reveal_complete`. Profile → Developer tools lists this session's
 measurements. Use Perfetto on real devices for authoritative numbers.
 
 ## Smoke tests

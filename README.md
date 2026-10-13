@@ -15,12 +15,14 @@ migrated, not discarded.
 
 | Area | Status |
 |---|---|
-| 4-tab shell (Home, Connections, Touch, Profile) | Working — Compose + Material 3, edge-to-edge, per-tab state saved/restored, dark & light |
+| 3-tab shell (Home, Connections, Profile) + Share | Working — Quiet Graphite design system, Compose + Material 3, edge-to-edge, per-tab state saved/restored, light & dark |
 | Reveal (`TapExperienceActivity`) | Working — translucent, own task, dynamic payload, 10-template catalog (3 fully choreographed), reduced-motion and low-end fallbacks |
 | Preview / Replay Reveal | Working — Home, Profile and Connections launch the same renderer |
 | Debug deep link `kipatprobe://tap/…` | Working — routes into the Reveal |
 | Kipat Card NFC tap → Reveal | Implemented (NDEF filter + parser + resolver); **not yet tested on a physical device** |
-| Prototype NTAG writer | Migrated into Touch → Prototype Card Tools; **not yet re-tested on hardware** after migration |
+| Share screen (QR, copy link, system share, card state) | Working; links point to kipat.app, which has **no web profile yet** |
+| Save contact | Working — one tap into Android Contacts (ACTION_INSERT), no .vcf |
+| Prototype NTAG writer | Profile → Developer tools; **not yet re-tested on hardware** after migration |
 | Connections, taps, profile publishing | **Local demo data, in memory** — resets when the process dies |
 | Authenticity / verification | **Not implemented.** Sample data shows "Verified · demo"; tag-supplied names show "Unverified" |
 | Kipat Plus, billing, backend, NTAG 424, HCE phone-to-phone | Not implemented (placeholders only) |
@@ -52,14 +54,14 @@ adb shell am start -W -a android.intent.action.VIEW \
 adb logcat -s KipatReveal                                                            # timing markers
 ```
 
-Touch → Developer diagnostics has the same triggers as buttons. See [`docs/reveal.md`](docs/reveal.md).
+Profile → Developer tools → *Test the Reveal* has the same triggers as buttons. See [`docs/reveal.md`](docs/reveal.md).
 
 ## Prototype NFC tag writing
 
-Touch → **Prototype Card Tools** → *Arm Tag Write*, then hold a blank NTAG 213/215/216 to the
+Profile → **Developer tools** → *Write to tag*, then hold a blank NTAG 213/215/216 to the
 phone. It writes `https://kipat.app/c/<cardId>[?n=<name>&t=<template>]` plus an Android
 Application Record. Tapping that tag on a phone with Kipat installed opens the Reveal.
-Foreground dispatch is only active while armed on the Touch screen. Details: [`docs/nfc.md`](docs/nfc.md).
+Foreground dispatch is only active while a write is armed on the Developer tools screen. Details: [`docs/nfc.md`](docs/nfc.md).
 
 ## Architecture
 
@@ -69,7 +71,7 @@ app/src/main/java/com/kipat/probe/
   TapExperienceActivity.kt   translucent Reveal host (NFC, deep link, preview, replay)
   navigation/                tabs + NavHost
   ui/theme, ui/components    design tokens and shared components
-  ui/screens/{home,connections,touch,profile}
+  ui/screens/{home,share,connections,profile,developer}
   reveal/                    payload, catalog, timeline engine, RevealScreen, effects/
   nfc/                       URI parser, tag writer, write controller
   model/, data/              domain models, in-memory repository, resolver
@@ -77,12 +79,21 @@ app/src/main/java/com/kipat/probe/
 
 More: [`docs/architecture.md`](docs/architecture.md).
 
+## Design
+
+Kipat's design rationale and rules live in `design/`: research (`research/reference-matrix.md`),
+audit, principles (`KIPAT_DESIGN_PRINCIPLES.md`), the token foundation (`system/foundation.md`),
+the chosen direction (*Quiet Graphite*) and the post-redesign review. Future sessions should
+follow `.claude/skills/kipat-product-design/SKILL.md`.
+
 ## Design references (Higgsfield)
 
 [`design/higgsfield/`](design/higgsfield/) holds the brief, exact prompts, the credit-guarded
-script, the generated reference stills (2 keyframes + one 4 s Seedance clip, 4 credits) and what
-was adopted or rejected. Two ideas from the clip — a progressive scrim and a card-outline trace —
-are now in the native Signature Reveal. Higgsfield output is art direction only, never the runtime.
+script and critiques for two rounds. v1 (4 credits) was rejected as generic AI concept art. v2
+(4 credits) was generated only after the design direction was chosen, with text-free geometric
+prompts: a Quiet Graphite card board (adopted), an Editorial board (backup, not adopted) and a
+Reveal motion reference whose contact ring, symmetric edge trace and name wipe are now native.
+Higgsfield output is art direction only, never the runtime.
 
 ## Known limitation: backdrop varies by device
 

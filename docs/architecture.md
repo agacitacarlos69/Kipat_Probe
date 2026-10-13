@@ -29,15 +29,17 @@ The Android-free layers are what the JVM unit tests cover.
 
 ## Navigation
 
-Four tabs via Navigation Compose string routes (`home`, `connections`, `touch`, `profile`) plus
-`connection/{connectionId}`. Tab switches use `popUpTo(start){saveState}` + `restoreState` +
-`launchSingleTop`, so each tab keeps its scroll/search/editor state; re-tapping the active tab
-pops to its root; Back from any tab returns to Home, then exits.
+Three tabs via Navigation Compose string routes (`home`, `connections`, `profile`) plus pushed
+routes `share`, `person/{connectionId}`, `profile/edit`, `profile/reveal-style` and
+`profile/developer` (see `design/research/navigation-decision.md`). Tab switches use `popUpTo(start){saveState}` + `restoreState` +
+`launchSingleTop`, so each tab keeps its scroll/search state; re-tapping the active tab pops to its
+root; Back from any tab returns to Home, then exits. The navigation bar shows on tab roots only.
+Edit profile asks before discarding unsaved changes.
 
 ## State
 
 `KipatRepository` exposes `StateFlow`s (identity, card, entitlement, connections, recent taps,
-Reveal timings). Screens collect with `collectAsStateWithLifecycle`. Only Profile uses a
+Reveal timings). Screens collect with `collectAsStateWithLifecycle`. Only Edit profile uses a
 `ViewModel` (the editable draft must survive configuration changes). Everything is in memory —
 persistence (Room/DataStore) and a backend are the planned replacements behind the same object.
 
@@ -46,10 +48,12 @@ created by the explicit *Connect* action.
 
 ## Design system
 
-`ui/theme`: colour palette + semantic `KipatColors` (accent, glass, authentic/pending/warning/
-revoked/inactive), `RevealPalette` per Reveal theme, type scale (all `sp`), `KipatSpacing`,
-`KipatRadius`, `KipatMotion` (durations + easing). Components read tokens; screens avoid raw
-constants. Dark and light schemes are both defined; the Reveal is always dark.
+Quiet Graphite (`design/system/foundation.md`). `ui/theme`: neutral palette + one cobalt accent as
+semantic `KipatColors`, `RevealPalette` (graphite scrim, accent per Reveal accent choice, card
+following the system theme), type scale (system sans, 400/500), spacing 4–40, radius by role
+(8/12/16/20), shell motion. `ui/components`: `IdentityBlock`, `RecipientCard`, `TrustLine`,
+`PersonRow`, `ActionRow`, `OptionRow`, buttons, top bar, and `KipatSymbols` (Material Symbols
+Outlined, the only icon family). Compose previews live in `ui/preview/`.
 
 ## Extension points (not implemented)
 
@@ -57,4 +61,4 @@ constants. Dark and light schemes are both defined; the Reveal is always dark.
   / NTAG 424 SUN check without blocking the first visual.
 - Billing: `Entitlement` + `RevealTemplateId.requiresPlus` are modelled; nothing is gated yet.
 - Designer-authored Rive/Lottie Reveals: add a template whose renderer swaps the Canvas layer,
-  keeping the same `KipatIdentityCard` for dynamic text.
+  keeping the same `IdentityBlock` for dynamic text.

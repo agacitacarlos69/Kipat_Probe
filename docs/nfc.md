@@ -26,7 +26,7 @@ Card IDs must match `[A-Za-z0-9_-]{1,64}`; anything else becomes an unresolved c
 `autoVerify`, because no `assetlinks.json` is deployed. Browser links to kipat.app therefore open
 the browser. NFC dispatch works regardless.
 
-## Writing: prototype cards (Touch → Prototype Card Tools)
+## Writing: prototype cards (Profile → Developer tools)
 
 Migrated from the original `MainActivity.java`:
 
@@ -38,7 +38,7 @@ Migrated from the original `MainActivity.java`:
 Changed:
 
 - Foreground dispatch is enabled **only while armed** and resumed (the probe enabled it on every
-  resume, which swallowed all tags while the app was open). Leaving the Touch tab disarms.
+  resume, which swallowed all tags while the app was open). Leaving the Developer tools screen disarms.
 - Writes run on `Dispatchers.IO` instead of the main thread.
 - Typed results: read-only, insufficient capacity, tag lost, unsupported, format failed, I/O,
   NFC off, no NFC. Errors keep the writer armed for a retry (as before); success disarms.

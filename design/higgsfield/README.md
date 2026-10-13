@@ -1,5 +1,10 @@
 # Higgsfield art direction — Kipat Signature Reveal
 
+> **v2 (current):** see `critique-v2.md` and `prompts/`. v2 was generated only after research and
+> direction selection, for card material and Reveal motion only, with text-free geometric prompts.
+> The v1 material below is kept as history; its visual direction (glass, cyan/violet, glow) was
+> rejected in the redesign.
+
 Higgsfield is used for **visual/motion reference only**. The shipped Reveal is native Compose
 (`app/src/main/java/com/kipat/probe/reveal/`) driven by a dynamic `RevealPayload`. No
 Higgsfield output is bundled in the APK, and the generated video is not committed.

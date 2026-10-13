@@ -40,7 +40,7 @@ Exactly one filled button per context. Everything else: text button, row, or ove
 
 ## Visual rules
 
-- **Color:** neutral 90–95%. Light bg #F6F6F4, text #17181C/#4E525B/#6A6E78; dark bg #131416, text #EDEDEF/#A9ACB3/#8B8F98. One accent: cobalt ink #2747C8 (light) / #9DB0FF (dark) — for Share, selected nav, links, the Reveal contact line. Status: verified #16794A/#5BC48C, warning #8A5A00/#E0A645, revoked #B42318/#F2766B. Every text pair ≥ 4.5:1 (measured).
+- **Color:** neutral 90–95%. Light bg #F6F6F4, text #17181C/#4E525B/#6A6E78; dark bg #131416, text #EDEDEF/#A9ACB3/#8B8F98. One accent: cobalt ink #2747C8 (light) / #9DB0FF (dark) — for Share, selected nav, links, the Reveal contact line. Status: verified #16794A/#5BC48C, warning #8A5A00/#E0A645, revoked #B42318/#F2766B. Dividers #E2E2DE/#2B2C30 (decorative); outlines of buttons/fields #8A8D95/#737680 (≥ 3:1). Every text pair ≥ 4.5:1 (measured).
 - **Type:** system sans, weights 400 & 500 only, sentence case. Identity name 28 sp/500 is the largest type in the shell. App bar title 22 sp. Row title 16/500. Section heading 14/500 secondary, only above a list.
 - **Spacing:** 4 · 8 · 12 · 16 · 20 · 24 · 32 · 40. Gutter 16. Rows ≥ 56 dp (one-line) / 72 dp (two-line). Targets ≥ 48 dp.
 - **Radius:** 8 chips, 12 buttons/inputs/QR frame, 16 recipient card & Reveal card, 20 dialogs/sheets. Buttons are not pills. Avatars and status chips are round.
@@ -50,7 +50,7 @@ Exactly one filled button per context. Everything else: text button, row, or ove
 ## Motion rules
 
 - Shell: tab fade ≤ 150 ms, push/pop 250 ms; no ambient or decorative motion.
-- Reveal: contact ring at the antenna point (0–300 ms) → scrim deepens → cobalt hairline traces the card edge from the top centre outward → card resolves (opacity + 0.98→1) → avatar → name → lines → trust → actions; settled ≈ 1.55 s. **No particles, glow, drip, gradients or bloom in the Signature Reveal.**
+- Reveal: contact ring at the card's top edge (0–300 ms) → scrim deepens → cobalt hairline traces the card edge from the top centre outward → card resolves (opacity + 0.98→1, 500–800 ms) → avatar 700 → name 850 (clip-reveal) → lines 950 → trust 1100 → actions 1250; settled 1550 ms. **No particles, glow, drip, gradients or bloom in the Signature Reveal.**
 - Reduced motion (`ValueAnimator.areAnimatorsEnabled() == false`): one 200 ms fade; all content readable immediately.
 
 ## NFC Reveal rules
@@ -58,7 +58,8 @@ Exactly one filled button per context. Everything else: text button, row, or ove
 - Own task (`taskAffinity=""`), translucent, edge-to-edge; the real previous app shows through. Never draw a fake app behind it.
 - Card is opaque (`surfaceElevated`) for legibility over any app; 16 dp radius; follows system light/dark. Scrim is always dark.
 - Order of information: avatar, name, role, organisation, trust line, actions. Identity text is in the layout from frame one (alpha only) for TalkBack.
-- Actions: Connect (primary, when connectable), Save contact (Android ACTION_INSERT — one tap, no .vcf), Open profile. A close button is always present. No "tap outside" hint text.
+- Actions: Connect (primary; "Done" for an unresolved card), Save contact (Android ACTION_INSERT, one tap, no .vcf), Open profile only when there is a Kipat profile to open. A close button is always present. No "tap outside" hint text.
+- Never record a tap of your own card as someone you met; never turn a tap into a connection without an explicit Connect.
 - No network before the first frame. Haptic on first frame; a second, calm haptic only when the card is verified.
 - Demo/sample data says "Sample data" on its own line. Debug sources are not shown in the card.
 
