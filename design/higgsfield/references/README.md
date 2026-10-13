@@ -1,2 +1,2 @@
-Small Higgsfield reference stills (<= 360 px wide) go here after a real generation.
-Empty on purpose: no generation has been performed yet.
+Higgsfield reference stills, generated 2026-10-13 (see ../README.md for job IDs and verdict).
+Design-only references; not product art. The source MP4 is not committed.

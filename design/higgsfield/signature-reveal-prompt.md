@@ -1,7 +1,17 @@
 # Kipat Signature NFC Reveal — Higgsfield prompts
 
-Status: **prepared, not yet generated** (see `README.md` → Status).
+Status: **generated 2026-10-13** (see `README.md` for job IDs, credits and verdict).
 These are the exact prompts `generate.sh` sends. Edit here, not in the script.
+
+Keyframe v2 (job `8a943dec…`) used the §1 prompt plus this extra line, which did not stop the
+model from labelling the role bar:
+
+> IMPORTANT: render zero typography. Every bar is a plain solid rounded rectangle with nothing
+> written on or near it; do not label any element (no 'Role', 'Program', 'Display name' or
+> similar). The background behind the card contains no words at all, only soft out-of-focus dark
+> shapes.
+
+Lesson for next time: describe bars by size and colour only — never name what they will hold.
 
 ## 0. Original brief (as given)
 
