@@ -1,6 +1,7 @@
 package com.kipat.probe.nfc
 
 import com.kipat.probe.model.AuthenticityState
+import com.kipat.probe.nfc.peer.KipatPeerBootstrap
 import com.kipat.probe.nfc.profile.NdefRecordData
 import com.kipat.probe.nfc.profile.NfcProfileFormat
 import com.kipat.probe.nfc.profile.NfcProfileParse
@@ -56,6 +57,11 @@ data class TapTarget(
 sealed interface ParsedNfcIntent {
     /** A `application/vnd.kipat.profile+json` record: valid, invalid or an unsupported version. */
     data class Profile(val result: NfcProfileParse, val recordCount: Int) : ParsedNfcIntent
+    /**
+     * Another Kipat phone's Type 4 bootstrap (`application/vnd.kipat.peer`): start Kipat Tap on the
+     * same contact. Carries no profile; [result] is only checked for a supported protocol.
+     */
+    data class PeerBootstrap(val result: KipatPeerBootstrap.Result) : ParsedNfcIntent
     data class Card(val target: TapTarget) : ParsedNfcIntent
     data class Unknown(val recordCount: Int) : ParsedNfcIntent
 }
@@ -76,6 +82,7 @@ object NfcIntentParser {
      */
     fun parseTap(records: List<NdefRecordData>, launchUri: String?): ParsedNfcIntent {
         records.firstOrNull { it.isKipatProfile }?.let { return ParsedNfcIntent.Profile(NfcProfileFormat.parse(it.payload), records.size) }
+        records.firstOrNull { KipatPeerBootstrap.isBootstrap(it) }?.let { return ParsedNfcIntent.PeerBootstrap(KipatPeerBootstrap.parse(it.payload)) }
         val uri = launchUri ?: records.firstNotNullOfOrNull { it.uriOrNull() }
         return parse(uri)?.let { ParsedNfcIntent.Card(it) } ?: ParsedNfcIntent.Unknown(records.size)
     }

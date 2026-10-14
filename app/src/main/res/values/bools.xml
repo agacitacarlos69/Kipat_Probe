@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Which NFC dispatch alias is enabled (see AndroidManifest.xml). Below API 37: unprotected. -->
+    <bool name="kipat_nfc_dispatch_legacy">true</bool>
+    <bool name="kipat_nfc_dispatch_v37">false</bool>
+</resources>

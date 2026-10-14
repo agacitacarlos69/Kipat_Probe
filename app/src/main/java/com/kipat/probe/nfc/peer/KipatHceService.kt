@@ -12,28 +12,62 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Presenter role ("Present my Kipat"): Android routes APDUs for the Kipat AID here while the phone
- * is unlocked (res/xml/kipat_apdu_service.xml: category "other", requireDeviceUnlock).
+ * Responder side of Kipat Tap. Android binds this service when another phone selects one of our
+ * AIDs (res/xml/kipat_apdu_service.xml: category "other", requireDeviceUnlock) — Kipat does not
+ * need to be open, and the process is started if it isn't running.
  *
- * Thin by design: all protocol logic lives in [KipatApduProcessor]. It serves profile data only
- * while the user has armed a Present session; otherwise every Kipat command returns 6985.
- * Nothing here touches the network, disk, images or a database.
+ * - `D2760000850101`: read-only NFC Forum Type 4 tag holding the tiny bootstrap NDEF, so the other
+ *   phone's Android launches Kipat ([KipatType4Tag]).
+ * - `F04B4950415401`: the Kipat protocol ([KipatApduProcessor]).
+ *
+ * Thin by design. Profile data is served only while Kipat Tap is eligible (enabled, public profile
+ * published, device unlocked) or a developer armed manual mode. The snapshot is loaded in
+ * [onCreate], so the APDU path never touches the network, images or a database.
  */
 class KipatHceService : HostApduService() {
-    private val processor by lazy { KipatApduProcessor(KipatPeerSessions.presenter, KipatPeerSessions.log) }
+    private val router by lazy {
+        KipatHceRouter(
+            KipatType4Tag(KipatPeerSessions.presenter, packageName, KipatPeerSessions.log),
+            KipatApduProcessor(KipatPeerSessions.presenter, KipatPeerSessions.log),
+        )
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        KipatPeerSessions.attach(this)
+        KipatTapStore.snapshot(this) // warm the public snapshot before the first APDU
+    }
 
     override fun processCommandApdu(commandApdu: ByteArray?, extras: Bundle?): ByteArray =
-        processor.process(commandApdu)
+        router.process(commandApdu)
 
     override fun onDeactivated(reason: Int) {
-        processor.onDeactivated(linkLost = reason == DEACTIVATION_LINK_LOSS)
+        router.onDeactivated(linkLost = reason == DEACTIVATION_LINK_LOSS)
     }
 }
 
-/** Process-wide phone-to-phone state, shared by the Share UI and [KipatHceService]. */
+/** Process-wide phone-to-phone state, shared by the UI, [KipatHceService] and the Reveal. */
 object KipatPeerSessions {
     val log = PeerLog { tag, name, detail -> Log.i(tag, if (detail.isEmpty()) name else "$name $detail") }
-    val presenter = PeerSessionStore(clock = { SystemClock.elapsedRealtime() }, log = log)
+
+    @Volatile private var appContext: Context? = null
+
+    /** Gives the ambient source a Context; called by the service, MainActivity and the Reveal. */
+    fun attach(context: Context) {
+        appContext = context.applicationContext
+        presenter.ambientListener = PeerDeliveryListener { peer, presenter, reader, bytes ->
+            appContext?.let { KipatTapLauncher.deliverAsResponder(it, peer, presenter, reader, bytes) }
+        }
+    }
+
+    val presenter = PeerSessionStore(
+        clock = { SystemClock.elapsedRealtime() },
+        log = log,
+        ambientProfile = { appContext?.let { KipatTapStore.eligibleProfile(it) } },
+    )
+
+    /** Exactly-once hand-off from either role to the Reveal. */
+    val deliveries = IncomingKipatExchangeStore(clock = { SystemClock.elapsedRealtime() })
 
     /** Receiver side: the same exchange completing twice in quick succession is one discovery. */
     val receiverDedupe = PeerExchangeDeduper()

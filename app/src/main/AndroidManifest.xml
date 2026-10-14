@@ -55,7 +55,18 @@
                     android:host="tap"
                     android:scheme="kipatprobe" />
             </intent-filter>
+        </activity>
 
+        <!-- NFC dispatch into the Reveal host. Android 17 (API 37) only dispatches NFC intents to
+             activities protected by DISPATCH_NFC_MESSAGE when the app targets SDK > 36; that
+             permission doesn't exist on older Android, where requiring it would block dispatch.
+             So the same filters live on two aliases and exactly one is enabled per API level
+             (res/values*/bools.xml). Launch mode, task affinity and theme come from the target. -->
+        <activity-alias
+            android:name=".NfcTapEntry"
+            android:enabled="@bool/kipat_nfc_dispatch_legacy"
+            android:exported="true"
+            android:targetActivity=".TapExperienceActivity">
             <!-- Kipat Card taps. NDEF dispatch does not need App Links verification. -->
             <intent-filter>
                 <action android:name="android.nfc.action.NDEF_DISCOVERED" />
@@ -83,10 +94,62 @@
                     android:host="probe.kipat.com"
                     android:scheme="https" />
             </intent-filter>
-        </activity>
 
-        <!-- "Present my Kipat": Host Card Emulation for the Kipat AID (category other, never payment).
-             Only the NFC system can bind it; it serves a profile only while Present mode is armed. -->
+            <!-- Kipat Tap: another Kipat phone's Type 4 bootstrap (docs/nfc/ambient-peer-feasibility.md).
+                 Tiny record, no profile; the exchange continues over the Kipat AID on the same contact. -->
+            <intent-filter>
+                <action android:name="android.nfc.action.NDEF_DISCOVERED" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/vnd.kipat.peer" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".NfcTapEntryProtected"
+            android:enabled="@bool/kipat_nfc_dispatch_v37"
+            android:exported="true"
+            android:permission="android.permission.DISPATCH_NFC_MESSAGE"
+            android:targetActivity=".TapExperienceActivity">
+            <!-- Kipat Card taps. NDEF dispatch does not need App Links verification. -->
+            <intent-filter>
+                <action android:name="android.nfc.action.NDEF_DISCOVERED" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="https" />
+                <data android:host="kipat.app" />
+                <data android:pathPrefix="/c/" />
+                <data android:pathPrefix="/tap/" />
+                <data android:pathPrefix="/p/" />
+            </intent-filter>
+
+            <!-- Self-contained test profiles (Developer tools → NFC full profile test). The profile
+                 MIME record is the tag's first record, so Android dispatches on this type. -->
+            <intent-filter>
+                <action android:name="android.nfc.action.NDEF_DISCOVERED" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/vnd.kipat.profile+json" />
+            </intent-filter>
+
+            <!-- Tags written by the original diagnostic probe (https://probe.kipat.com). -->
+            <intent-filter>
+                <action android:name="android.nfc.action.NDEF_DISCOVERED" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data
+                    android:host="probe.kipat.com"
+                    android:scheme="https" />
+            </intent-filter>
+
+            <!-- Kipat Tap: another Kipat phone's Type 4 bootstrap (docs/nfc/ambient-peer-feasibility.md).
+                 Tiny record, no profile; the exchange continues over the Kipat AID on the same contact. -->
+            <intent-filter>
+                <action android:name="android.nfc.action.NDEF_DISCOVERED" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/vnd.kipat.peer" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- Kipat Tap responder: Host Card Emulation for the Type 4 NDEF AID (bootstrap) and the
+             Kipat AID (category other, never payment). Only the NFC system can bind it; it shares
+             the public profile only while Kipat Tap is enabled and the phone is unlocked. -->
         <service
             android:name=".nfc.peer.KipatHceService"
             android:exported="true"

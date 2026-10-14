@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 17+: NFC intents are dispatched only to DISPATCH_NFC_MESSAGE-protected activities. -->
+    <bool name="kipat_nfc_dispatch_legacy">false</bool>
+    <bool name="kipat_nfc_dispatch_v37">true</bool>
+</resources>

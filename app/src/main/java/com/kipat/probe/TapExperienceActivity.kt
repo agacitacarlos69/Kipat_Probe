@@ -38,10 +38,25 @@ import com.kipat.probe.reveal.RevealTrace
 import com.kipat.probe.reveal.TapDebouncer
 import com.kipat.probe.model.AuthenticityState
 import com.kipat.probe.ui.theme.KipatTheme
+import androidx.lifecycle.lifecycleScope
+import com.kipat.probe.nfc.peer.KipatPeerBootstrap
+import com.kipat.probe.nfc.peer.KipatPeerSessions
+import com.kipat.probe.nfc.peer.KipatTapInitiator
+import com.kipat.probe.nfc.peer.KipatTapLauncher
+import com.kipat.probe.nfc.peer.PeerExchangeResult
+import com.kipat.probe.nfc.peer.PeerLog
+import com.kipat.probe.nfc.peer.TapPending
+import com.kipat.probe.nfc.peer.TapRole
+import com.kipat.probe.nfc.profile.NfcProfilePayload
+import com.kipat.probe.reveal.TapPendingOverlay
 
 /**
  * Translucent Reveal host. Launched by:
  *  - NFC NDEF_DISCOVERED for Kipat card URIs and self-contained test profiles (own task, so it floats above the previous app)
+ *  - Kipat Tap, initiator side: another Kipat phone's Type 4 bootstrap (`application/vnd.kipat.peer`);
+ *    the exchange runs on the same contact ([KipatTapInitiator]) and the Reveal starts when the
+ *    peer profile is validated
+ *  - Kipat Tap, responder side: [com.kipat.probe.nfc.peer.KipatTapLauncher] from the HCE service
  *  - the `kipatprobe://tap/…` debug deep link
  *  - Preview / Replay from inside the app (explicit, nonce-protected payload extras)
  *
@@ -55,6 +70,9 @@ class TapExperienceActivity : ComponentActivity() {
     private var connected by mutableStateOf(false)
     private var quality = RevealQuality.HIGH
     private val debouncer = TapDebouncer()
+    /** Non-null while a Kipat Tap exchange is in flight: the Reveal waits for a validated profile. */
+    private var pending by mutableStateOf<TapPending?>(null)
+    private var initiator: KipatTapInitiator? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         trace = RevealTrace(intent?.getLongExtra(RevealLauncher.EXTRA_LAUNCH_UPTIME, -1L)?.takeIf { it > 0 })
@@ -64,20 +82,29 @@ class TapExperienceActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
         )
         super.onCreate(savedInstanceState)
+        KipatPeerSessions.attach(this)
+        markDelivered(intent)
 
-        payload = resolve(intent)
-        connected = KipatRepository.isConnected(payload.cardId)
         runKey = savedInstanceState?.getInt(STATE_RUN_KEY) ?: 0
         quality = RevealQualityPolicy.choose(this)
-        if (savedInstanceState == null) {
-            // Only real taps/links are recorded; in-app previews and replays are not new taps.
-            if (!hasTrustedPayload(intent)) KipatRepository.recordTap(payload)
-            rememberTap(payload)
+        val bootstrap = peerBootstrap(intent)
+        if (bootstrap != null) {
+            // Kipat Tap initiator: nothing is shown until the other phone's profile is validated.
+            if (savedInstanceState == null) startKipatTap(intent, bootstrap) else finish()
+        } else {
+            payload = resolve(intent)
+            connected = KipatRepository.isConnected(payload.cardId)
+            if (savedInstanceState == null) {
+                // Only real taps/links are recorded; in-app previews and replays are not new taps.
+                if (!hasTrustedPayload(intent)) KipatRepository.recordTap(payload)
+                rememberTap(payload)
+            }
         }
 
         setContent {
             KipatTheme {
-                RevealScreen(
+                val waiting = pending
+                if (waiting != null) TapPendingOverlay(waiting, onDismiss = ::finish) else RevealScreen(
                     payload = payload,
                     quality = quality,
                     runKey = runKey,
@@ -97,6 +124,12 @@ class TapExperienceActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        markDelivered(intent)
+        peerBootstrap(intent)?.let { bootstrap ->
+            // Re-read of the same phone, or a new one while a Reveal shows: the exchange decides (deduplicated).
+            if (initiator?.running != true) startKipatTap(intent, bootstrap)
+            return
+        }
         val next = resolve(intent)
         // Duplicate scans (same card within the debounce window) don't restart the Reveal.
         if (isDuplicate(next)) {
@@ -109,6 +142,66 @@ class TapExperienceActivity : ComponentActivity() {
         if (!hasTrustedPayload(intent)) KipatRepository.recordTap(next)
         trace = RevealTrace(intent.getLongExtra(RevealLauncher.EXTRA_LAUNCH_UPTIME, -1L).takeIf { it > 0 })
         runKey++
+    }
+
+    override fun onResume() {
+        super.onResume()
+        initiator?.onResume()
+    }
+
+    override fun onPause() {
+        initiator?.onPause()
+        super.onPause()
+    }
+
+    override fun onDestroy() {
+        initiator?.cancel()
+        super.onDestroy()
+    }
+
+    private fun peerBootstrap(intent: Intent?): KipatPeerBootstrap.Result? =
+        if (!NfcIntents.isNfcLaunch(intent)) null
+        else (NfcIntentParser.parseTap(NfcIntents.recordsFrom(intent), null) as? ParsedNfcIntent.PeerBootstrap)?.result
+
+    private fun startKipatTap(intent: Intent, bootstrap: KipatPeerBootstrap.Result) {
+        Log.i(PeerLog.TAG_AMBIENT, "ndef_dispatched since_create_ms=0")
+        val showingReveal = pending == null && payload.source == RevealSource.PEER_NFC
+        val tap = initiator ?: KipatTapInitiator(
+            activity = this,
+            scope = lifecycleScope,
+            onPending = { if (payload.source != RevealSource.PEER_NFC || pending != null) pending = it },
+            onPeer = ::showPeer,
+            onFinish = { if (pending != null) finish() },
+        ).also { initiator = it }
+        if (!showingReveal) pending = TapPending.Connecting
+        tap.start(intent, bootstrap)
+    }
+
+    /** A validated peer from Kipat Tap (initiator side): one Reveal per person per encounter. */
+    private fun showPeer(peer: NfcProfilePayload, result: PeerExchangeResult.Success) {
+        val delivery = KipatPeerSessions.deliveries.offer(peer, TapRole.INITIATOR)
+        if (delivery == null) {
+            Log.i(PeerLog.TAG_LAUNCH, "duplicate_exchange_ignored role=initiator")
+            if (pending != null) finish()
+            return
+        }
+        KipatPeerSessions.deliveries.markShown(delivery.exchangeId)
+        KipatPeerSessions.recordReceiverDiagnostics(result)
+        val next = KipatTapLauncher.payloadFor(peer)
+        KipatRepository.recordTap(next)
+        rememberTap(next)
+        payload = next
+        connected = KipatRepository.isConnected(next.cardId)
+        trace = RevealTrace(null)
+        pending = null
+        runKey++
+        Log.i(PeerLog.TAG_LAUNCH, "initiator_reveal_requested exchange=${delivery.exchangeId}")
+    }
+
+    /** The responder's Reveal appeared: proves the background launch was allowed. */
+    private fun markDelivered(intent: Intent?) {
+        val id = intent?.getLongExtra(KipatTapLauncher.EXTRA_EXCHANGE_ID, -1L) ?: -1L
+        if (id > 0 && hasTrustedPayload(intent!!)) KipatPeerSessions.deliveries.markShown(id)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -145,6 +238,8 @@ class TapExperienceActivity : ComponentActivity() {
                     ownCardIsDemo = KipatRepository.card.value.isDemo,
                     connections = KipatRepository.connections.value,
                 )
+                // Handled before resolve() by the Kipat Tap initiator; never rendered as a card.
+                is ParsedNfcIntent.PeerBootstrap -> RevealPayload.unresolved(null, source)
                 is ParsedNfcIntent.Unknown -> {
                     Log.w(RevealTrace.TAG, "unrecognised launch uri=$uri action=${intent?.action}")
                     RevealPayload.unresolved(null, source)

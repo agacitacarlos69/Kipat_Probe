@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Kipat phone-to-phone NFC, presenter role. AID F04B4950415401 = proprietary F0 + "KIPAT" + v1;
-  the authoritative constant is KipatApduProtocol.AID_HEX (keep in sync).
+  Kipat Tap responder (docs/nfc/ambient-peer-feasibility.md). Two AIDs, one service:
+  - D2760000850101: NFC Forum Type 4 Tag NDEF application (KipatType4Tag.NDEF_AID_V2_HEX), serving
+    only the tiny bootstrap NDEF so the other phone's Android opens Kipat.
+  - F04B4950415401: proprietary F0 + "KIPAT" + v1 (KipatApduProtocol.AID_HEX), the profile exchange.
+  Keep both in sync with the Kotlin constants (a unit test checks).
   category="other": Kipat is not a payment app and never touches the default-wallet role.
-  requireDeviceUnlock: a locked phone never answers, even if Present mode is armed.
+  requireDeviceUnlock: a locked phone never answers (Android shows its own "unlock and tap again").
 -->
 <host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/kipat_hce_description"
@@ -11,6 +14,7 @@
     <aid-group
         android:category="other"
         android:description="@string/kipat_hce_aid_group">
+        <aid-filter android:name="D2760000850101" />
         <aid-filter android:name="F04B4950415401" />
     </aid-group>
 </host-apdu-service>
