@@ -62,6 +62,14 @@
                 <data android:pathPrefix="/p/" />
             </intent-filter>
 
+            <!-- Self-contained test profiles (Developer tools → NFC full profile test). The profile
+                 MIME record is the tag's first record, so Android dispatches on this type. -->
+            <intent-filter>
+                <action android:name="android.nfc.action.NDEF_DISCOVERED" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/vnd.kipat.profile+json" />
+            </intent-filter>
+
             <!-- Tags written by the original diagnostic probe (https://probe.kipat.com). -->
             <intent-filter>
                 <action android:name="android.nfc.action.NDEF_DISCOVERED" />

@@ -23,7 +23,8 @@ tools/device-validation/kipat-device-validate.sh templates font   # or individua
 DRY_RUN=1 tools/device-validation/kipat-device-validate.sh  # print the commands only
 ```
 
-Phases: `info install shell apps templates timing repeat interrupt rotation font motion`.
+Phases: `info install shell apps templates timing repeat interrupt rotation font motion`, plus
+opt-in `nfcprofile` (not in `all`: it needs a person holding a card; `NFC_WAIT_S`, default 120 s).
 Output: `docs/device-validation/<manufacturer-model>/` with `device-info.md`, `performance.md`
 (measured numbers only), `screenshots/`, `raw/` (videos and logs; `*.mp4` is git-ignored — keep
 large raw files out of git and commit only screenshots/contact sheets), and `checklist.md`.
@@ -46,7 +47,26 @@ template (`ripple orbit lines aperture spatial minimal-fade`), `th` accent
 4. Physical NFC: Profile → Developer tools → Write to tag, tap an NTAG213/215/216; then with
    another app open, tap the tag (warm), then `adb shell am force-stop com.kipat.probe` and tap
    again (cold). Capture `adb logcat -s KipatReveal:I` during each tap.
-5. Record findings in `<device>/issues.md` as P0–P3. Change UI only for a recorded issue, with
+5. Full profile NFC test (needs an NTAG215 or NTAG216; an NTAG213 for the too-large case). Run
+   `tools/device-validation/kipat-device-validate.sh nfcprofile`, which opens the screen and
+   captures `KipatNfcProfile` / `KipatReveal` logs (sizes and result types only, no profile
+   fields), then on the phone:
+   1. Profile → Developer tools → NFC full profile test (the script opens it).
+   2. Load sample profile. Size shows 341 bytes; NTAG213 "Too large", NTAG215/216 "Fits".
+   3. Write profile card, hold the card flat on the NFC area until **PROFILE WRITE VERIFIED**.
+      With a used card, the replace prompt must appear first; Cancel must leave it unchanged.
+   4. Read profile card: all fields, version 1, payload 268 bytes, UID, technologies, writable.
+      Copy diagnostic report into `<device>/raw/nfc-profile-report.txt`.
+   5. Preview Reveal: name, headline, role, organisation, Precision Orbit, Cobalt, "Unverified
+      card" + "Test profile". Never "Verified".
+   6. Leave the tool. With another app open, tap the card: the Reveal opens over it (warm). Then
+      `adb shell am force-stop com.kipat.probe` and tap again (cold). Tap twice quickly: one Reveal.
+   7. NTAG213: Write profile card must show **PROFILE TOO LARGE** (Required 341, Available ≈137)
+      and leave the card unchanged. Edit to name only (112 bytes) and write again: verified.
+   8. Write a malformed profile with any NFC tool (MIME `application/vnd.kipat.profile+json`,
+      payload `{"v":1,"name":`): the tap shows "Kipat profile detected but invalid", no crash.
+      `{"v":2,"name":"A"}` shows "Unsupported Kipat NFC profile version".
+6. Record findings in `<device>/issues.md` as P0–P3. Change UI only for a recorded issue, with
    `DEVICE ISSUE / WHAT WAS OBSERVED / WHY THIS CHANGE FIXES IT` in the commit, then re-run the
    affected phase and mark the issue FIXED with the new evidence.
-6. Add a row to `oem-matrix.md`. One phone verifies one phone.
+7. Add a row to `oem-matrix.md`. One phone verifies one phone.

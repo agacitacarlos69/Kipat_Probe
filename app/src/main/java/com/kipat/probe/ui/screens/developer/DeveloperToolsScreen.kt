@@ -63,7 +63,7 @@ import java.io.File
  * original probe's log. Monospace is allowed here because these are raw values.
  */
 @Composable
-fun DeveloperToolsScreen(writer: NfcWriteController, onBack: () -> Unit) {
+fun DeveloperToolsScreen(writer: NfcWriteController, onBack: () -> Unit, onNfcProfileTest: () -> Unit = {}) {
     val context = LocalContext.current
     val identity by KipatRepository.identity.collectAsStateWithLifecycle()
     val writeState by writer.state.collectAsStateWithLifecycle()
@@ -106,6 +106,15 @@ fun DeveloperToolsScreen(writer: NfcWriteController, onBack: () -> Unit) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = Kipat.colors.textSecondary,
                 modifier = Modifier.padding(horizontal = KipatSpacing.gutter),
+            )
+
+            SectionHeading("Prototype tools")
+            ActionRow(
+                "NFC full profile test",
+                icon = KipatSymbols.Contactless,
+                supporting = "Write a whole test profile to a card and read it back",
+                chevron = true,
+                onClick = onNfcProfileTest,
             )
 
             SectionHeading("Card writer")
@@ -162,7 +171,7 @@ fun DeveloperToolsScreen(writer: NfcWriteController, onBack: () -> Unit) {
             KipatDivider()
             ActionRow("Your card", supporting = "kipatprobe://tap/demo", onClick = { openDeepLink(context, "kipatprobe://tap/demo") })
             KipatDivider()
-            ActionRow("Name on tag, Particle Bloom", supporting = "Unverified card", onClick = { openDeepLink(context, "kipatprobe://tap/KPT-X1?n=Sam%20Reyes&s=Designer&t=particle-bloom") })
+            ActionRow("Name on tag, Line Assembly", supporting = "Unverified card", onClick = { openDeepLink(context, "kipatprobe://tap/KPT-X1?n=Sam%20Reyes&s=Designer&t=lines") })
             KipatDivider()
             ActionRow("Revoked card, Minimal", supporting = "Card revoked", onClick = { openDeepLink(context, "kipatprobe://tap/KPT-DEMO-0107?a=revoked&t=minimal-fade") })
 

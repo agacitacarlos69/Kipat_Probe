@@ -15,6 +15,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.kipat.probe.data.KipatRepository
+import com.kipat.probe.data.NfcProfileReveal
 import com.kipat.probe.data.RevealResolver
 import com.kipat.probe.data.RevealTiming
 import com.kipat.probe.data.ContactSaver
@@ -22,6 +23,8 @@ import com.kipat.probe.navigation.KipatDestination
 import com.kipat.probe.navigation.KipatRoutes
 import com.kipat.probe.nfc.NfcIntentParser
 import com.kipat.probe.nfc.NfcIntents
+import com.kipat.probe.nfc.ParsedNfcIntent
+import com.kipat.probe.nfc.profile.NfcProfileParse
 import com.kipat.probe.reveal.KipatHaptics
 import com.kipat.probe.reveal.RevealLauncher
 import com.kipat.probe.reveal.RevealMilestone
@@ -38,7 +41,7 @@ import com.kipat.probe.ui.theme.KipatTheme
 
 /**
  * Translucent Reveal host. Launched by:
- *  - NFC NDEF_DISCOVERED for Kipat card URIs (own task, so it floats above the previous app)
+ *  - NFC NDEF_DISCOVERED for Kipat card URIs and self-contained test profiles (own task, so it floats above the previous app)
  *  - the `kipatprobe://tap/…` debug deep link
  *  - Preview / Replay from inside the app (explicit, nonce-protected payload extras)
  *
@@ -126,17 +129,26 @@ class TapExperienceActivity : ComponentActivity() {
             decoded.payload
         } else {
             val uri = NfcIntents.uriFrom(intent)
-            val target = NfcIntentParser.parse(uri)
-            if (target == null) {
-                Log.w(RevealTrace.TAG, "unrecognised launch uri=$uri action=${intent?.action}")
-                RevealPayload.unresolved(null, if (NfcIntents.isNfcLaunch(intent)) RevealSource.NFC_TAG else RevealSource.DEEP_LINK)
-            } else {
-                RevealResolver.resolve(
-                    target = target,
+            val source = if (NfcIntents.isNfcLaunch(intent)) RevealSource.NFC_TAG else RevealSource.DEEP_LINK
+            // An embedded test profile on the tag wins over any Kipat URI on the same tag.
+            when (val tap = NfcIntentParser.parseTap(NfcIntents.recordsFrom(intent), uri)) {
+                is ParsedNfcIntent.Profile -> {
+                    when (val r = tap.result) {
+                        is NfcProfileParse.Valid -> Log.i(RevealTrace.TAG, "nfc test profile v${r.profile.version} bytes=${r.payloadBytes} records=${tap.recordCount}")
+                        else -> Log.w(RevealTrace.TAG, "nfc profile not shown: ${r::class.simpleName}")
+                    }
+                    NfcProfileReveal.payloadFor(tap.result, source)
+                }
+                is ParsedNfcIntent.Card -> RevealResolver.resolve(
+                    target = tap.target,
                     ownIdentity = KipatRepository.identity.value,
                     ownCardIsDemo = KipatRepository.card.value.isDemo,
                     connections = KipatRepository.connections.value,
                 )
+                is ParsedNfcIntent.Unknown -> {
+                    Log.w(RevealTrace.TAG, "unrecognised launch uri=$uri action=${intent?.action}")
+                    RevealPayload.unresolved(null, source)
+                }
             }
         }
     } catch (t: Throwable) {

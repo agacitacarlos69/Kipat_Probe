@@ -89,3 +89,25 @@ Distraction (5 = none) · Readability · Trust · Overall preference — copy in
 | Reveal over that app, translucent | |
 | Cold (force-stopped) vs warm | |
 | Same tag twice quickly | |
+
+## Full profile NFC test (needs an NTAG215/216, plus an NTAG213 for the too-large case)
+| Step | Result |
+|---|---|
+| Card types used (and `Capacity` shown by the tool) | |
+| Load sample: 341 bytes; NTAG213 Too large, NTAG215/216 Fits | |
+| Write to a blank card → PROFILE WRITE VERIFIED | |
+| Write to a used card → replace prompt; Cancel leaves the card unchanged | |
+| Replace and write → PROFILE WRITE VERIFIED | |
+| Read: all fields, v1, 268-byte payload, UID, technologies, writable | |
+| Copy JSON / Copy diagnostic report paste correctly (report saved to raw/) | |
+| Preview Reveal: right fields, template, accent; "Unverified card" + "Test profile"; never Verified | |
+| Tap from launcher → Reveal | |
+| Tap with another app open → Reveal over it, translucent | |
+| Cold (force-stopped) vs warm | |
+| Same card twice quickly → one Reveal | |
+| NTAG213 → PROFILE TOO LARGE (Required / Available shown), card unchanged | |
+| Name-only profile on NTAG213 (112 bytes) → verified | |
+| Malformed payload → "Kipat profile detected but invalid", no crash | |
+| `"v":2` → "Unsupported Kipat NFC profile version" | |
+| Card moved away mid-write → asks to tap again, no false VERIFIED | |
+| Phone without Kipat: AAR opens the store page (if a second phone is available) | |

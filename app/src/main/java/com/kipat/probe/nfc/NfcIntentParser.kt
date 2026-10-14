@@ -1,6 +1,9 @@
 package com.kipat.probe.nfc
 
 import com.kipat.probe.model.AuthenticityState
+import com.kipat.probe.nfc.profile.NdefRecordData
+import com.kipat.probe.nfc.profile.NfcProfileFormat
+import com.kipat.probe.nfc.profile.NfcProfileParse
 import com.kipat.probe.reveal.RevealTemplateId
 import com.kipat.probe.reveal.RevealTheme
 import com.kipat.probe.reveal.sanitizeId
@@ -46,6 +49,18 @@ data class TapTarget(
 )
 
 /**
+ * What a tap delivered, in order of precedence (docs/nfc-self-contained-profile.md):
+ * an embedded Kipat test profile beats a Kipat card URI on the same tag (in TEST mode the URI is
+ * only routing); anything else is unknown.
+ */
+sealed interface ParsedNfcIntent {
+    /** A `application/vnd.kipat.profile+json` record: valid, invalid or an unsupported version. */
+    data class Profile(val result: NfcProfileParse, val recordCount: Int) : ParsedNfcIntent
+    data class Card(val target: TapTarget) : ParsedNfcIntent
+    data class Unknown(val recordCount: Int) : ParsedNfcIntent
+}
+
+/**
  * Parses Kipat card URIs. Pure JVM code (java.net.URI) so it is unit tested without a device.
  *
  * Accepted forms:
@@ -55,6 +70,16 @@ data class TapTarget(
  *  - `kipatprobe://tap/{cardId}?…&a=&k=org` (debug deep link)
  */
 object NfcIntentParser {
+    /**
+     * Classifies a tap from its NDEF records and/or launch URI. Records are untrusted: only the
+     * Kipat profile MIME type and Kipat URIs are interpreted; every other record is ignored.
+     */
+    fun parseTap(records: List<NdefRecordData>, launchUri: String?): ParsedNfcIntent {
+        records.firstOrNull { it.isKipatProfile }?.let { return ParsedNfcIntent.Profile(NfcProfileFormat.parse(it.payload), records.size) }
+        val uri = launchUri ?: records.firstNotNullOfOrNull { it.uriOrNull() }
+        return parse(uri)?.let { ParsedNfcIntent.Card(it) } ?: ParsedNfcIntent.Unknown(records.size)
+    }
+
     const val CARD_HOST = "kipat.app"
     const val LEGACY_PROBE_HOST = "probe.kipat.com"
     const val DEBUG_SCHEME = "kipatprobe"

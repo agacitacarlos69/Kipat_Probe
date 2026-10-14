@@ -39,6 +39,8 @@ import com.kipat.probe.nfc.NfcWriteController
 import com.kipat.probe.ui.screens.connections.ConnectionsScreen
 import com.kipat.probe.ui.screens.connections.PersonScreen
 import com.kipat.probe.ui.screens.developer.DeveloperToolsScreen
+import com.kipat.probe.ui.screens.developer.NfcProfileEditorScreen
+import com.kipat.probe.ui.screens.developer.NfcProfileTestScreen
 import com.kipat.probe.ui.screens.home.HomeScreen
 import com.kipat.probe.ui.screens.profile.ProfileEditScreen
 import com.kipat.probe.ui.screens.profile.ProfileScreen
@@ -71,6 +73,12 @@ fun KipatApp(
                 navController.navigate(target)
             }
             target == KipatRoutes.SHARE -> navController.navigate(KipatRoutes.SHARE)
+            // Device kit (phase nfcprofile) opens the test screen directly.
+            target == KipatRoutes.NFC_PROFILE -> {
+                navController.navigateToTab(KipatDestination.Profile)
+                navController.navigate(KipatRoutes.DEVELOPER)
+                navController.navigate(KipatRoutes.NFC_PROFILE)
+            }
         }
         pendingDestination.value = null
     }
@@ -115,7 +123,18 @@ fun KipatApp(
             ) { id -> PersonScreen(connectionId = id.orEmpty(), snackbar = snackbar, onBack = { navController.popBackStack() }) }
             pushed(KipatRoutes.PROFILE_EDIT) { ProfileEditScreen(snackbar = snackbar, onDone = { navController.popBackStack() }) }
             pushed(KipatRoutes.REVEAL_STYLE) { RevealStyleScreen(onBack = { navController.popBackStack() }) }
-            pushed(KipatRoutes.DEVELOPER) { DeveloperToolsScreen(writer = writer, onBack = { navController.popBackStack() }) }
+            pushed(KipatRoutes.DEVELOPER) {
+                DeveloperToolsScreen(writer = writer, onBack = { navController.popBackStack() }, onNfcProfileTest = { navController.navigate(KipatRoutes.NFC_PROFILE) })
+            }
+            pushed(KipatRoutes.NFC_PROFILE) {
+                NfcProfileTestScreen(
+                    onBack = { navController.popBackStack() },
+                    onEdit = { navController.navigate(KipatRoutes.NFC_PROFILE_EDIT) },
+                    onCreate = { navController.navigate(KipatRoutes.NFC_PROFILE_NEW) },
+                )
+            }
+            pushed(KipatRoutes.NFC_PROFILE_EDIT) { NfcProfileEditorScreen(startBlank = false, onDone = { navController.popBackStack() }) }
+            pushed(KipatRoutes.NFC_PROFILE_NEW) { NfcProfileEditorScreen(startBlank = true, onDone = { navController.popBackStack() }) }
         }
     }
 }

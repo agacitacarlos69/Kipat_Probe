@@ -10,6 +10,7 @@ import com.kipat.probe.navigation.KipatApp
 import com.kipat.probe.nfc.NfcIntentParser
 import com.kipat.probe.nfc.NfcIntents
 import com.kipat.probe.nfc.NfcWriteController
+import com.kipat.probe.nfc.ParsedNfcIntent
 import com.kipat.probe.ui.theme.KipatTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -55,7 +56,9 @@ class MainActivity : ComponentActivity() {
         intent ?: return
         intent.getStringExtra(EXTRA_DESTINATION)?.let { pendingDestination.value = it }
         // If Android delivered a Kipat card tap here (e.g. via the AAR fallback), hand it to the Reveal.
-        if (NfcIntents.isNfcLaunch(intent) && NfcIntentParser.parse(NfcIntents.uriFrom(intent)) != null) {
+        if (NfcIntents.isNfcLaunch(intent) &&
+            NfcIntentParser.parseTap(NfcIntents.recordsFrom(intent), NfcIntents.uriFrom(intent)) !is ParsedNfcIntent.Unknown
+        ) {
             startActivity(
                 Intent(intent).setClass(this, TapExperienceActivity::class.java),
             )

@@ -22,6 +22,11 @@ Accepted URIs:
 
 Card IDs must match `[A-Za-z0-9_-]{1,64}`; anything else becomes an unresolved card.
 
+**Self-contained test profiles** (MIME `application/vnd.kipat.profile+json`, development only)
+carry the whole profile on the card and need no lookup. `NfcIntentParser.parseTap` classifies a
+tap as `Profile`, `Card` or `Unknown`; an embedded profile wins over a Kipat URI on the same tag.
+Always shown as Unverified + "Test profile". See [nfc-self-contained-profile.md](nfc-self-contained-profile.md).
+
 **App Links:** the manifest does *not* claim `https://kipat.app` for `VIEW` intents and uses no
 `autoVerify`, because no `assetlinks.json` is deployed. Browser links to kipat.app therefore open
 the browser. NFC dispatch works regardless.
@@ -46,7 +51,16 @@ Changed:
 - Payload changed from `https://probe.kipat.com` to `https://kipat.app/c/{cardId}` (+ optional
   short name/template hints, sized for NTAG213's 144 bytes).
 
+## Writing: full test profiles (Developer tools → NFC full profile test)
+
+Reader mode while waiting for a card; exact size check against `Ndef.getMaxSize`; confirmation
+before replacing existing data; write → close → reconnect → read back → compare, and only then
+"PROFILE WRITE VERIFIED". Details in [nfc-self-contained-profile.md](nfc-self-contained-profile.md).
+
 ## Needs a physical device (not done in this environment)
+
+- Writing and reading a full test profile on NTAG213 (expect PROFILE TOO LARGE for the sample),
+  NTAG215 and NTAG216; tapping it from the launcher, over another app, cold and warm
 
 - Writing NTAG 213/215/216 (blank, pre-formatted, read-only, too-small)
 - Tapping a written card: from the home screen, from another app, with Kipat already open, with the

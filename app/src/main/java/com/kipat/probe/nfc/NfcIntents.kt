@@ -5,6 +5,7 @@ import android.nfc.NdefMessage
 import android.nfc.NfcAdapter
 import android.os.Build
 import android.os.Parcelable
+import com.kipat.probe.nfc.profile.NdefRecordData
 
 /**
  * Extracts the Kipat URI from a launch intent: the intent data for VIEW/NDEF_DISCOVERED, or the
@@ -21,6 +22,12 @@ object NfcIntents {
     }
 
     fun isNfcLaunch(intent: Intent?): Boolean = intent?.action == NfcAdapter.ACTION_NDEF_DISCOVERED
+
+    /** Every record of every delivered NDEF message, as platform-free data. */
+    fun recordsFrom(intent: Intent?): List<NdefRecordData> {
+        if (intent == null || intent.action != NfcAdapter.ACTION_NDEF_DISCOVERED) return emptyList()
+        return ndefMessages(intent).flatMap { it.records.asList() }.map { it.toData() }
+    }
 
     @Suppress("DEPRECATION")
     private fun ndefMessages(intent: Intent): List<NdefMessage> {

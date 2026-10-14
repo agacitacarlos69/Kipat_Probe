@@ -40,6 +40,13 @@ data class RevealPayload(
     val connectable: Boolean = true,
     /** A company/organisation identity: its mark is a logo (rounded square), not a person's portrait. */
     val isOrganization: Boolean = false,
+    /** Optional third context line (e.g. "Developer" under "BS Computer Science"). */
+    val role: String? = null,
+    /**
+     * Read from a self-contained NFC test profile (docs/nfc-self-contained-profile.md). Shown as
+     * "Test profile" next to the trust state; such a profile is never verified.
+     */
+    val testProfile: Boolean = false,
 ) {
     /**
      * Connect only makes sense for someone else's identity seen through a real tap, and only
@@ -49,8 +56,9 @@ data class RevealPayload(
         get() = connectable && (source == RevealSource.NFC_TAG || source == RevealSource.DEEP_LINK)
 
     companion object {
-        const val MAX_NAME = 48
-        const val MAX_LINE = 72
+        // Match the NFC test-profile limits so names and organisations are never silently cut.
+        const val MAX_NAME = 120
+        const val MAX_LINE = 200
         const val MAX_ID = 64
         const val FALLBACK_NAME = "Kipat card"
 
@@ -116,6 +124,8 @@ object RevealPayloadCodec {
     const val KEY_PRIMARY = "kipat.reveal.cta1"
     const val KEY_SECONDARY = "kipat.reveal.cta2"
     const val KEY_KIND = "kipat.reveal.kind"
+    const val KEY_ROLE = "kipat.reveal.role"
+    const val KEY_TEST_PROFILE = "kipat.reveal.testProfile"
     private const val KIND_ORGANIZATION = "org"
 
     data class Decoded(val payload: RevealPayload, val issues: List<String>) {
@@ -137,6 +147,8 @@ object RevealPayloadCodec {
         put(KEY_PRIMARY, p.primaryCta)
         put(KEY_SECONDARY, p.secondaryCta)
         if (p.isOrganization) put(KEY_KIND, KIND_ORGANIZATION)
+        p.role?.let { put(KEY_ROLE, it) }
+        if (p.testProfile) put(KEY_TEST_PROFILE, "true")
     }
 
     /** True when the extras contain an explicit payload (as opposed to a bare NFC/deep link). */
@@ -182,6 +194,8 @@ object RevealPayloadCodec {
             secondaryCta = sanitizeLine(get(KEY_SECONDARY), 24) ?: RevealPayload.defaultSecondaryCta(source),
             // Anything other than the organisation marker is a person; never an error.
             isOrganization = get(KEY_KIND) == KIND_ORGANIZATION,
+            role = sanitizeLine(get(KEY_ROLE), RevealPayload.MAX_LINE),
+            testProfile = get(KEY_TEST_PROFILE) == "true",
         )
         return Decoded(payload, issues)
     }

@@ -76,7 +76,8 @@ fun ActionRow(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = if (supporting != null) KipatSpacing.rowTwoLine else KipatSpacing.rowOneLine)
-            .then(if (onClick != null && enabled) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)
+            // A disabled action stays one node and is announced as disabled, not as plain text.
+            .then(if (onClick != null) Modifier.clickable(enabled = enabled, role = Role.Button, onClick = onClick) else Modifier)
             .padding(horizontal = KipatSpacing.gutter, vertical = KipatSpacing.s8),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(KipatSpacing.s16),

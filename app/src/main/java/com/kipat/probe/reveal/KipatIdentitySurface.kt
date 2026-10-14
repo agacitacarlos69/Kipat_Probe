@@ -125,6 +125,7 @@ fun KipatIdentitySurface(
             AuthenticityRow(
                 state = payload.authenticity,
                 isDemo = payload.isDemo,
+                testProfile = payload.testProfile,
                 colors = colors,
                 style = style,
                 accent = palette.accent,
@@ -201,7 +202,7 @@ private fun IdentityHeader(
     val text: @Composable (Modifier) -> Unit = { m ->
         Column(m) {
             IdentityName(payload.displayName, layout, palette.card, wipeName, slots)
-            IdentityContext(payload.subtitle, payload.organization, palette.card, Modifier.layerAlpha(rise = 4.dp) { slots().lines })
+            IdentityContext(payload.subtitle, payload.role, payload.organization, palette.card, Modifier.layerAlpha(rise = 4.dp) { slots().lines })
         }
     }
     when (layout) {
@@ -244,14 +245,16 @@ private fun IdentityName(name: String, layout: IdentityLayout, colors: KipatColo
     )
 }
 
-/** What they do, then where: role in 16 sp, organisation quieter in 14 sp. Wraps rather than clips. */
+/** What they do, then where: headline in 16 sp, optional role, organisation quieter in 14 sp. Wraps rather than clips. */
 @Composable
-private fun IdentityContext(role: String?, organization: String?, colors: KipatColors, modifier: Modifier = Modifier) {
-    val r = role?.takeIf { it.isNotBlank() }
+private fun IdentityContext(subtitle: String?, role: String?, organization: String?, colors: KipatColors, modifier: Modifier = Modifier) {
+    val r = subtitle?.takeIf { it.isNotBlank() }
+    val extra = role?.takeIf { it.isNotBlank() && it != r }
     val o = organization?.takeIf { it.isNotBlank() }
-    if (r == null && o == null) return
+    if (r == null && extra == null && o == null) return
     Column(modifier.padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         r?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = colors.textSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+        extra?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis) }
         o?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis) }
     }
 }
@@ -314,8 +317,10 @@ fun AuthenticityRow(
     style: SurfaceStyle,
     accent: Color,
     modifier: Modifier = Modifier,
+    /** A self-contained NFC test profile: noted as such, and never presented as verified. */
+    testProfile: Boolean = false,
 ) {
-    val p = state.present(isDemo)
+    val p = state.present(isDemo).let { if (testProfile) it.copy(demoNote = "Test profile") else it }
     val tint = when (state) {
         AuthenticityState.AUTHENTIC -> colors.verified
         AuthenticityState.REVOKED -> colors.revoked
@@ -323,7 +328,7 @@ fun AuthenticityRow(
         else -> colors.textSecondary
     }
     val showDetail = state == AuthenticityState.REVOKED || state == AuthenticityState.ERROR
-    Column(modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = "Authenticity: ${p.label}. ${p.detail}" }) {
+    Column(modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = "Authenticity: ${p.label}. ${p.detail}" + (if (testProfile) ". Test profile" else "") }) {
         Row(Modifier.heightIn(min = 24.dp), verticalAlignment = Alignment.CenterVertically) {
             TrustGlyph(state, tint, accent)
             Spacer(Modifier.width(8.dp))

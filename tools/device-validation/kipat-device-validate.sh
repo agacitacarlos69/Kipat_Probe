@@ -11,6 +11,7 @@
 # Usage:
 #   tools/device-validation/kipat-device-validate.sh [phase ...]
 #   phases: info install shell apps templates timing repeat interrupt rotation font motion all
+#           nfcprofile (opt-in, not in 'all': needs a person and an NTAG215/216; NFC_WAIT_S=120)
 #   DRY_RUN=1  print the adb commands instead of running them (no phone needed)
 #   APK=path   APK to install (default: app/build/outputs/apk/debug/app-debug.apk)
 #
@@ -201,6 +202,20 @@ phase_templates() {
     IFS='|' read -r stem card q <<<"$c"
     reveal "$stem" "$(link "$card" "$q")"; shot "$stem"; back
   done
+}
+
+phase_nfcprofile() {
+  log "NFC full profile test (needs a person and an NTAG215/216; see README 'Full profile NFC test')"
+  a shell am start -W -n "$PKG/.MainActivity" --es kipat.nav.destination profile/developer/nfc-profile >/dev/null
+  sleep 1.5; shot nfc-profile-screen
+  local wait_s=${NFC_WAIT_S:-120}
+  log "  on the phone: Load sample profile → Write profile card → hold the card until PROFILE WRITE VERIFIED;"
+  log "  Read profile card → Preview Reveal; then Home, tap the card (warm); am force-stop $PKG, tap again (cold)."
+  log "  capturing logcat for ${wait_s}s → raw/nfc-profile-log.txt (shapes and sizes only, no profile fields)"
+  a logcat -c
+  if [[ $DRY == 1 ]]; then echo "adb logcat -s KipatNfcProfile:I KipatReveal:I  (for ${wait_s}s)" >&2; return; fi
+  timeout "$wait_s" "$ADB" logcat -s KipatNfcProfile:I KipatReveal:I >"$DEVICE_DIR/raw/nfc-profile-log.txt" || true
+  shot nfc-profile-after
 }
 
 phase_timing() {
