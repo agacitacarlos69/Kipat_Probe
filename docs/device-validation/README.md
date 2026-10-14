@@ -47,7 +47,8 @@ template (`ripple orbit lines aperture spatial minimal-fade`), `th` accent
 4. Physical NFC: Profile → Developer tools → Write to tag, tap an NTAG213/215/216; then with
    another app open, tap the tag (warm), then `adb shell am force-stop com.kipat.probe` and tap
    again (cold). Capture `adb logcat -s KipatReveal:I` during each tap.
-5. Full profile NFC test (needs an NTAG215 or NTAG216; an NTAG213 for the too-large case). Run
+5. Phone-to-phone NFC: see [below](#phone-to-phone-nfc-two-phones).
+6. Full profile NFC test (needs an NTAG215 or NTAG216; an NTAG213 for the too-large case). Run
    `tools/device-validation/kipat-device-validate.sh nfcprofile`, which opens the screen and
    captures `KipatNfcProfile` / `KipatReveal` logs (sizes and result types only, no profile
    fields), then on the phone:
@@ -66,7 +67,36 @@ template (`ripple orbit lines aperture spatial minimal-fade`), `th` accent
    8. Write a malformed profile with any NFC tool (MIME `application/vnd.kipat.profile+json`,
       payload `{"v":1,"name":`): the tap shows "Kipat profile detected but invalid", no crash.
       `{"v":2,"name":"A"}` shows "Unsupported Kipat NFC profile version".
-6. Record findings in `<device>/issues.md` as P0–P3. Change UI only for a recorded issue, with
+7. Record findings in `<device>/issues.md` as P0–P3. Change UI only for a recorded issue, with
    `DEVICE ISSUE / WHAT WAS OBSERVED / WHY THIS CHANGE FIXES IT` in the commit, then re-run the
    affected phase and mark the issue FIXED with the new evidence.
-7. Add a row to `oem-matrix.md`. One phone verifies one phone.
+8. Add a row to `oem-matrix.md`. One phone verifies one phone.
+
+## Phone-to-phone NFC (two phones)
+
+Needs two physical NFC phones with the same build. Checklist:
+[`_template/two-phone-checklist.md`](_template/two-phone-checklist.md). Protocol:
+[`../nfc-phone-to-phone.md`](../nfc-phone-to-phone.md).
+
+```bash
+adb devices -l                                   # note both serials
+PRESENTER_SERIAL=<A> RECEIVER_SERIAL=<B> tools/device-validation/kipat-two-phone-validate.sh            # info, install, open, round A→B
+PRESENTER_SERIAL=<A> RECEIVER_SERIAL=<B> tools/device-validation/kipat-two-phone-validate.sh swap       # round B→A
+DRY_RUN=1 PRESENTER_SERIAL=a RECEIVER_SERIAL=b tools/device-validation/kipat-two-phone-validate.sh     # print commands only
+```
+
+Every adb call is bound to one serial; identical serials and emulators are refused. Output:
+`docs/device-validation/two-phone/<A>__<B>/` (`device-info.md`, `screenshots/`, `raw/*.log`,
+`checklist.md`). Logs carry event names, sizes and short session ids only.
+
+Manually (one computer per phone is fine, or none):
+
+1. Both phones: NFC on, screen unlocked, Kipat installed, profile set (Profile → Edit profile).
+2. Both: Home → **Share** → **Share with another Kipat**.
+3. Phone A: **Present my Kipat** → "Ready to share". Phone B: **Receive a Kipat** → "Looking for Kipat".
+4. Hold the backs together, upper halves first; move slowly until one vibrates; keep still.
+5. Expect B: "Kipat found" → "Receiving profile" → "Exchanging profiles" → A's Reveal.
+   Expect A: "Kipat found" → "Receiving profile" → B's Reveal. Neither is connected until Connect.
+6. Repeat with B's "Send my profile back" off (A shows "Shared"), then swap roles.
+7. If Android's "New tag collected / Empty tag" appears, note which phone and capture
+   `adb logcat -s KipatPeerNfc:I KipatHce:I KipatPeerReader:I KipatPeerProtocol:I` from both.

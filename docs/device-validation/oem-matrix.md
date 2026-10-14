@@ -10,3 +10,13 @@ shown instead) · OTHER. A row is only filled from a physical device running the
 | Google | Pixel | Stock | — | — | NOT TESTED | NOT TESTED | NOT TESTED | Unverified | |
 | Xiaomi | — | HyperOS / MIUI | — | — | NOT TESTED | NOT TESTED | NOT TESTED | Unverified | |
 | OPPO | — | ColorOS | — | — | NOT TESTED | NOT TESTED | NOT TESTED | Unverified | |
+
+## Phone-to-phone NFC
+
+Filled only from two physical phones running the build named in the row
+([two-phone checklist](_template/two-phone-checklist.md)). Reader mode suppresses the system tag
+viewer? AID reaches Kipat? Record each direction separately.
+
+| Presenter (OEM / model / Android / skin) | Receiver (OEM / model / Android / skin) | Build | System "Empty tag" suppressed | AID reached presenter | B receives A | A receives B | Result | Notes |
+|---|---|---|---|---|---|---|---|---|
+| — | — | — | NOT TESTED | NOT TESTED | NOT TESTED | NOT TESTED | Unverified | No two-phone test has been run |

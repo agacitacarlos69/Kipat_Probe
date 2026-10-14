@@ -25,7 +25,9 @@ migrated, not discarded.
 | Prototype NTAG writer | Profile → Developer tools; **not yet re-tested on hardware** after migration |
 | Connections, taps, profile publishing | **Local demo data, in memory** — resets when the process dies |
 | Authenticity / verification | **Not implemented.** Sample data shows "Verified · demo"; tag-supplied names show "Unverified" |
-| Kipat Plus, billing, backend, NTAG 424, HCE phone-to-phone | Not implemented (placeholders only) |
+| Self-contained NFC test profile cards | Implemented (Developer tools → NFC full profile test); **not yet tested on hardware** |
+| Phone-to-phone NFC (Share → Share with another Kipat) | **Implemented, protocol-tested in a JVM simulation; physical two-phone test pending.** HCE presenter + reader-mode receiver, mutual profile exchange, never auto-connects ([`docs/nfc-phone-to-phone.md`](docs/nfc-phone-to-phone.md)) |
+| Kipat Plus, billing, backend, NTAG 424 | Not implemented (placeholders only) |
 
 ## Build
 
@@ -73,7 +75,9 @@ app/src/main/java/com/kipat/probe/
   ui/theme, ui/components    design tokens and shared components
   ui/screens/{home,share,connections,profile,developer}
   reveal/                    payload, catalog, timeline engine, RevealScreen, effects/
-  nfc/                       URI parser, tag writer, write controller
+  nfc/                       physical cards: URI parser, tag writer, write controller
+  nfc/profile/               shared public-profile JSON + NDEF codec (cards and phone-to-phone)
+  nfc/peer/                  phone-to-phone: HCE service, APDU protocol/processor, IsoDep reader
   model/, data/              domain models, in-memory repository, resolver
 ```
 

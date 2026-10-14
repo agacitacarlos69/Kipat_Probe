@@ -1,5 +1,11 @@
 # NFC
 
+Two architectures: **physical cards** (NDEF, this document and
+[nfc-self-contained-profile.md](nfc-self-contained-profile.md)) and **phone to phone** (Host Card
+Emulation + reader mode + APDUs, [nfc-phone-to-phone.md](nfc-phone-to-phone.md)). They share
+the public profile schema and the Reveal, nothing else. Touching two phones never goes through
+NDEF, and Android Beam is not used.
+
 ## Reading: card tap → Reveal
 
 ```
@@ -70,4 +76,5 @@ before replacing existing data; write → close → reconnect → read back → 
 
 ## Not implemented
 
-NTAG 424 DNA SUN/CMAC verification, Host Card Emulation (phone-to-phone), backend card lookup.
+NTAG 424 DNA SUN/CMAC verification, backend card lookup, cryptographic peer identity for
+phone-to-phone exchanges.
