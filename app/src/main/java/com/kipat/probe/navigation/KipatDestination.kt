@@ -25,7 +25,6 @@ enum class KipatDestination(
 /** Routes pushed on top of a tab. */
 object KipatRoutes {
     const val SHARE = "share"
-    const val SHARE_NEARBY = "share/nearby"
     const val PERSON_ID_ARG = "connectionId"
     const val PERSON = "person/{$PERSON_ID_ARG}"
     const val PROFILE_EDIT = "profile/edit"
@@ -34,14 +33,15 @@ object KipatRoutes {
     const val NFC_PROFILE = "profile/developer/nfc-profile"
     const val NFC_PROFILE_EDIT = "profile/developer/nfc-profile/edit"
     const val NFC_PROFILE_NEW = "profile/developer/nfc-profile/new"
+    const val NFC_MANUAL_PEER = "profile/developer/nfc-manual-peer"
 
     fun person(id: String) = "person/$id"
 
     /** Which tab a pushed route belongs to, for the selected state of the navigation bar. */
     fun owningTab(route: String?): KipatDestination? = when (route) {
         PERSON -> KipatDestination.Connections
-        PROFILE_EDIT, REVEAL_STYLE, DEVELOPER, NFC_PROFILE, NFC_PROFILE_EDIT, NFC_PROFILE_NEW -> KipatDestination.Profile
-        SHARE, SHARE_NEARBY -> null
+        PROFILE_EDIT, REVEAL_STYLE, DEVELOPER, NFC_PROFILE, NFC_PROFILE_EDIT, NFC_PROFILE_NEW, NFC_MANUAL_PEER -> KipatDestination.Profile
+        SHARE -> null
         else -> KipatDestination.fromRoute(route)
     }
 }

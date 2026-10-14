@@ -44,6 +44,10 @@ import com.kipat.probe.nfc.NfcWriteController
 import com.kipat.probe.nfc.TagWriteState
 import com.kipat.probe.nfc.peer.KipatApduProtocol
 import com.kipat.probe.nfc.peer.KipatPeerSessions
+import com.kipat.probe.nfc.peer.KipatTapStore
+import com.kipat.probe.nfc.peer.KipatType4Tag
+import android.nfc.NfcAdapter
+import android.os.Build
 import com.kipat.probe.nfc.peer.PeerSessionStore
 import com.kipat.probe.nfc.label
 import com.kipat.probe.ui.components.ActionRow
@@ -66,7 +70,7 @@ import java.io.File
  * original probe's log. Monospace is allowed here because these are raw values.
  */
 @Composable
-fun DeveloperToolsScreen(writer: NfcWriteController, onBack: () -> Unit, onNfcProfileTest: () -> Unit = {}) {
+fun DeveloperToolsScreen(writer: NfcWriteController, onBack: () -> Unit, onNfcProfileTest: () -> Unit = {}, onManualPeerTest: () -> Unit = {}) {
     val context = LocalContext.current
     val identity by KipatRepository.identity.collectAsStateWithLifecycle()
     val writeState by writer.state.collectAsStateWithLifecycle()
@@ -118,6 +122,14 @@ fun DeveloperToolsScreen(writer: NfcWriteController, onBack: () -> Unit, onNfcPr
                 supporting = "Write a whole test profile to a card and read it back",
                 chevron = true,
                 onClick = onNfcProfileTest,
+            )
+            KipatDivider()
+            ActionRow(
+                "Manual NFC peer test",
+                icon = KipatSymbols.Contactless,
+                supporting = "Present or receive by hand, for diagnosing HCE and reader behaviour",
+                chevron = true,
+                onClick = onManualPeerTest,
             )
 
             SectionHeading("Card writer")
@@ -207,7 +219,25 @@ private fun PhoneToPhoneDiagnostics(context: Context, mono: androidx.compose.ui.
     val caps = remember { KipatPeerSessions.capabilities(context) }
     val presenter by KipatPeerSessions.presenter.diagnostics.collectAsStateWithLifecycle()
     val receiver by KipatPeerSessions.receiverDiagnostics.collectAsStateWithLifecycle()
+    val tap = remember { KipatTapStore.availability(context) }
+    val snapshot = remember { KipatTapStore.snapshot(context) }
+    val lastDelivery = remember { KipatPeerSessions.deliveries.latest() }
     // NFC hardware and on/off are in the NFC section above.
+    SectionHeading("Kipat Tap (ambient)")
+    ActionRow("Availability", value = tap.name)
+    KipatDivider()
+    ActionRow("Public snapshot", value = snapshot?.let { "${it.bytes.size} bytes" } ?: "None")
+    KipatDivider()
+    ActionRow("NFC dispatch alias", value = if (Build.VERSION.SDK_INT >= 37) "Protected (API 37+)" else "Legacy (API < 37)")
+    if (Build.VERSION.SDK_INT >= 36) {
+        KipatDivider()
+        val allowed = remember { runCatching { NfcAdapter.getDefaultAdapter(context)?.isTagIntentAllowed }.getOrNull() }
+        ActionRow("NFC tag intents allowed", value = when (allowed) { true -> "Yes"; false -> "Blocked by user"; null -> "Unknown" })
+    }
+    lastDelivery?.let { d ->
+        KipatDivider()
+        ActionRow("Last Kipat Tap", value = "${d.role.name.lowercase()}: ${d.peer.displayName}")
+    }
     SectionHeading("Phone-to-phone NFC")
     ActionRow("Present Kipat (HCE)", value = if (caps.canPresent) "Supported" else "Not supported on this device")
     KipatDivider()
@@ -215,7 +245,7 @@ private fun PhoneToPhoneDiagnostics(context: Context, mono: androidx.compose.ui.
     KipatDivider()
     ActionRow("Protocol", value = "Kipat NFC v${KipatApduProtocol.PROTOCOL_VERSION}")
     Text(
-        "AID ${KipatApduProtocol.AID_HEX}, max profile ${KipatApduProtocol.MAX_PROFILE_BYTES} B, chunk ≤ ${KipatApduProtocol.MAX_CHUNK} B, present window ${PeerSessionStore.PRESENT_WINDOW_MS / 1000} s",
+        "AIDs ${KipatType4Tag.NDEF_AID_V2_HEX} (Type 4 bootstrap) + ${KipatApduProtocol.AID_HEX}, max profile ${KipatApduProtocol.MAX_PROFILE_BYTES} B, chunk ≤ ${KipatApduProtocol.MAX_CHUNK} B, present window ${PeerSessionStore.PRESENT_WINDOW_MS / 1000} s",
         style = mono,
         color = Kipat.colors.textSecondary,
         modifier = Modifier.padding(horizontal = KipatSpacing.gutter, vertical = KipatSpacing.s4),

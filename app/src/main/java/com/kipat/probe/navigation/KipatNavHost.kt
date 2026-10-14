@@ -45,11 +45,12 @@ import com.kipat.probe.ui.screens.home.HomeScreen
 import com.kipat.probe.ui.screens.profile.ProfileEditScreen
 import com.kipat.probe.ui.screens.profile.ProfileScreen
 import com.kipat.probe.ui.screens.profile.RevealStyleScreen
-import com.kipat.probe.ui.screens.share.NearbyShareScreen
+import com.kipat.probe.ui.screens.developer.ManualPeerTestScreen
 import com.kipat.probe.ui.screens.share.ShareScreen
 import com.kipat.probe.ui.theme.Kipat
 import com.kipat.probe.ui.theme.KipatMotion
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 
 /** Root of the Kipat shell: three tabs with saved per-tab state, plus pushed routes. */
 @Composable
@@ -67,6 +68,10 @@ fun KipatApp(
 
     LaunchedEffect(pending) {
         val target = pending ?: return@LaunchedEffect
+        // On a cold start the NavHost (inside Scaffold's subcomposition) may not have set its graph
+        // yet; wait for the start destination before navigating (e.g. "Open profile" from a Reveal
+        // shown in a fresh process).
+        navController.currentBackStackEntryFlow.first()
         when {
             KipatDestination.fromRoute(target) != null -> navController.navigateToTab(KipatDestination.fromRoute(target)!!)
             target.startsWith("person/") -> {
@@ -74,10 +79,11 @@ fun KipatApp(
                 navController.navigate(target)
             }
             target == KipatRoutes.SHARE -> navController.navigate(KipatRoutes.SHARE)
-            // Two-phone device kit opens the nearby share screen directly.
-            target == KipatRoutes.SHARE_NEARBY -> {
-                navController.navigate(KipatRoutes.SHARE)
-                navController.navigate(KipatRoutes.SHARE_NEARBY)
+            // Two-phone device kit opens the manual peer test directly.
+            target == KipatRoutes.NFC_MANUAL_PEER -> {
+                navController.navigateToTab(KipatDestination.Profile)
+                navController.navigate(KipatRoutes.DEVELOPER)
+                navController.navigate(KipatRoutes.NFC_MANUAL_PEER)
             }
             // Device kit (phase nfcprofile) opens the test screen directly.
             target == KipatRoutes.NFC_PROFILE -> {
@@ -122,10 +128,8 @@ fun KipatApp(
                     onDeveloperTools = { navController.navigate(KipatRoutes.DEVELOPER) },
                 )
             }
-            pushed(KipatRoutes.SHARE) {
-                ShareScreen(onBack = { navController.popBackStack() }, onNearby = { navController.navigate(KipatRoutes.SHARE_NEARBY) })
-            }
-            pushed(KipatRoutes.SHARE_NEARBY) { NearbyShareScreen(onBack = { navController.popBackStack() }) }
+            pushed(KipatRoutes.SHARE) { ShareScreen(onBack = { navController.popBackStack() }) }
+            pushed(KipatRoutes.NFC_MANUAL_PEER) { ManualPeerTestScreen(onBack = { navController.popBackStack() }) }
             pushed(
                 KipatRoutes.PERSON,
                 arguments = listOf(navArgument(KipatRoutes.PERSON_ID_ARG) { type = NavType.StringType }),
@@ -133,7 +137,12 @@ fun KipatApp(
             pushed(KipatRoutes.PROFILE_EDIT) { ProfileEditScreen(snackbar = snackbar, onDone = { navController.popBackStack() }) }
             pushed(KipatRoutes.REVEAL_STYLE) { RevealStyleScreen(onBack = { navController.popBackStack() }) }
             pushed(KipatRoutes.DEVELOPER) {
-                DeveloperToolsScreen(writer = writer, onBack = { navController.popBackStack() }, onNfcProfileTest = { navController.navigate(KipatRoutes.NFC_PROFILE) })
+                DeveloperToolsScreen(
+                    writer = writer,
+                    onBack = { navController.popBackStack() },
+                    onNfcProfileTest = { navController.navigate(KipatRoutes.NFC_PROFILE) },
+                    onManualPeerTest = { navController.navigate(KipatRoutes.NFC_MANUAL_PEER) },
+                )
             }
             pushed(KipatRoutes.NFC_PROFILE) {
                 NfcProfileTestScreen(

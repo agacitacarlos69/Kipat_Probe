@@ -22,6 +22,7 @@ import com.kipat.probe.model.ProfileField
 import com.kipat.probe.reveal.RevealLauncher
 import com.kipat.probe.reveal.RevealSource
 import com.kipat.probe.ui.components.ActionRow
+import com.kipat.probe.ui.screens.share.KipatTapSettingRow
 import com.kipat.probe.ui.components.KipatDivider
 import com.kipat.probe.ui.components.KipatPrimaryButton
 import com.kipat.probe.ui.components.KipatSecondaryButton
@@ -98,6 +99,8 @@ fun ProfileScreen(
                 ActionRow("Reveal style", value = identity.revealTemplate.label, chevron = true, onClick = onRevealStyle)
                 KipatDivider()
                 ActionRow("Share", value = "QR, link, card", chevron = true, onClick = onShare)
+                KipatDivider()
+                KipatTapSettingRow()
             }
             if (details.isNotEmpty()) {
                 item { SectionHeading("Details") }

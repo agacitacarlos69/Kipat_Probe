@@ -1,4 +1,4 @@
-package com.kipat.probe.ui.screens.share
+package com.kipat.probe.ui.screens.developer
 
 import android.content.ComponentName
 import android.content.Context
@@ -73,12 +73,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
- * Share → Share with another Kipat. Explicit roles: one phone presents (Host Card Emulation),
- * the other receives (reader mode). No protocol words here; those live in Developer tools.
- * Touching phones discovers each other; only Connect on the Reveal creates a connection.
+ * Developer tools → Manual NFC peer test. The explicit-role predecessor of Kipat Tap, kept for
+ * diagnosing HCE / reader-mode behaviour on OEM phones: one phone presents for 60 s, the other
+ * receives in reader mode. Normal Kipat Tap needs none of this (docs/nfc/ambient-peer-feasibility.md).
  */
 @Composable
-fun NearbyShareScreen(onBack: () -> Unit) {
+fun ManualPeerTestScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val activity = LocalActivity.current
     val view = LocalView.current
@@ -141,7 +141,7 @@ fun NearbyShareScreen(onBack: () -> Unit) {
 
     Scaffold(
         containerColor = Kipat.colors.background,
-        topBar = { KipatTopBar("Share with another Kipat", navigationIcon = KipatSymbols.ArrowBack, onNavigate = onBack) },
+        topBar = { KipatTopBar("Manual NFC peer test", navigationIcon = KipatSymbols.ArrowBack, onNavigate = onBack) },
     ) { padding ->
         Column(
             Modifier
@@ -205,7 +205,7 @@ private fun ChooseRole(
 ) {
     Hero(
         title = "Touch phones to share",
-        body = "One phone presents its Kipat, the other receives it. Touching phones lets you see who each other are; you still choose whether to connect.",
+        body = "For diagnosing HCE and reader behaviour. Normal Kipat Tap doesn't need these controls: one phone presents for 60 seconds, the other receives.",
     )
     caps.notice?.let { Notice(it) }
     Column(Modifier.padding(KipatSpacing.gutter), verticalArrangement = Arrangement.spacedBy(KipatSpacing.s12)) {

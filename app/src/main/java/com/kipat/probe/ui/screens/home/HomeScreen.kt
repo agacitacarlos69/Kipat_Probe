@@ -30,6 +30,7 @@ import com.kipat.probe.model.initialsOf
 import com.kipat.probe.reveal.RevealLauncher
 import com.kipat.probe.reveal.RevealSource
 import com.kipat.probe.ui.components.ActionRow
+import com.kipat.probe.ui.screens.share.KipatTapHomeRow
 import com.kipat.probe.ui.components.IdentityBlock
 import com.kipat.probe.ui.components.KipatDivider
 import com.kipat.probe.ui.components.KipatIcons
@@ -126,6 +127,7 @@ fun HomeScreen(
                 )
             }
             item { KipatDivider(inset = false) }
+            item { KipatTapHomeRow(divider = { KipatDivider(inset = false) }) }
 
             item { SectionHeading("Recent") }
             if (unsaved.isEmpty() && latest.isEmpty()) {
