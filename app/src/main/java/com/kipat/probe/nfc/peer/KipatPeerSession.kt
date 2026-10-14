@@ -8,15 +8,37 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.security.SecureRandom
 
-/** One armed "Present my Kipat" session. The profile is serialized before arming, never in the APDU path. */
+/**
+ * One responder session: either a developer "Present my Kipat" window (manual) or one ambient
+ * Kipat Tap encounter. The profile is serialized before the session exists, never in the APDU path.
+ */
 class PeerPresentSession(
     val sessionId: ByteArray,
     val expiresAtMs: Long,
     val profile: NfcProfilePayload,
     val profileBytes: ByteArray,
     val sha256: ByteArray,
+    /** Opened by an NFC encounter for Kipat Tap rather than armed by a person in manual mode. */
+    val ambient: Boolean = false,
 ) {
     val profileType: Byte get() = if (profile.type.wire == "organization") 2 else 1
+}
+
+/** The public Kipat Tap profile, serialized and hashed once when published. */
+class TapProfile(val profile: NfcProfilePayload, val bytes: ByteArray, val sha256: ByteArray) {
+    companion object {
+        /** Null when the profile is over the protocol limit: it is then never shared. */
+        fun of(profile: NfcProfilePayload): TapProfile? {
+            val bytes = KipatPeerProfile.toBytes(profile)
+            if (bytes.size > KipatApduProtocol.MAX_PROFILE_BYTES) return null
+            return TapProfile(profile, bytes, KipatApduProtocol.sha256(bytes))
+        }
+    }
+}
+
+/** Receives a validated peer profile from an ambient encounter (the responder side of Kipat Tap). */
+fun interface PeerDeliveryListener {
+    fun onPeerDelivered(peer: NfcProfilePayload, presenterSession: ByteArray, readerSession: ByteArray, uploadedBytes: Int)
 }
 
 /** Presenter UI states. Typed: no protocol state is encoded in strings. */
@@ -64,15 +86,26 @@ class PeerExchangeDeduper(private val windowMs: Long = 10_000) {
 }
 
 /**
- * Presenter-side state shared by the Present UI and [KipatHceService]. One instance per process
- * ([KipatPeerSessions]); survives Activity recreation. Nothing is persisted: after process death
- * no session is armed and the service refuses every profile request.
+ * Responder-side state shared by [KipatHceService] and the UI. One instance per process
+ * ([KipatPeerSessions]).
+ *
+ * Two kinds of session:
+ * - **Ambient (Kipat Tap, the product flow):** opened on demand when a reader selects the Type 4
+ *   NDEF or Kipat AID, only while [ambientProfile] says Kipat Tap is eligible (enabled, public
+ *   profile published, device unlocked). One session per NFC encounter, closed by COMPLETE or
+ *   after [ENCOUNTER_WINDOW_MS]. No UI arms it and nothing expires while the user is elsewhere.
+ * - **Manual (Developer tools only):** a 60 s window armed by a person, for OEM diagnosis.
+ *   It takes precedence while armed.
  */
 class PeerSessionStore(
     private val clock: () -> Long,
     private val random: SecureRandom = SecureRandom(),
     private val log: PeerLog = PeerLog.NONE,
+    private val ambientProfile: () -> TapProfile? = { null },
 ) {
+    /** Set by the HCE service: shows the Reveal for a peer received during an ambient encounter. */
+    @Volatile var ambientListener: PeerDeliveryListener? = null
+
     private val _state = MutableStateFlow<PresentState>(PresentState.Idle)
     val state: StateFlow<PresentState> = _state.asStateFlow()
 
@@ -80,6 +113,8 @@ class PeerSessionStore(
     val diagnostics: StateFlow<PeerDiagnostics?> = _diagnostics.asStateFlow()
 
     @Volatile private var session: PeerPresentSession? = null
+    @Volatile private var encounter: PeerPresentSession? = null
+    private val encounterStarts = ArrayDeque<Long>()
     private var exchangeCounter = 0L
     private var revealShownFor = -1L
     private var helloAt = 0L
@@ -119,14 +154,39 @@ class PeerSessionStore(
         _state.value = PresentState.Unsupported(reason)
     }
 
-    /** The armed session, or null (never armed, cancelled, finished or expired). Fast: called per APDU. */
+    /** The live session (manual first, then the ambient encounter), or null. Fast: called per APDU. */
     fun activeSession(): PeerPresentSession? {
-        val s = session ?: return null
-        if (clock() >= s.expiresAtMs) {
+        session?.let { s ->
+            if (clock() < s.expiresAtMs) return s
             expire(s)
+        }
+        val e = encounter ?: return null
+        if (clock() < e.expiresAtMs) return e
+        encounter = null
+        return null
+    }
+
+    /**
+     * Called when a reader selects the Type 4 NDEF or Kipat AID. Reuses the open encounter (so the
+     * bootstrap nonce and the HELLO session id match) or opens one if Kipat Tap is eligible.
+     * Null = nothing may be shared now. Bounded: at most [MAX_ENCOUNTERS_PER_MINUTE].
+     */
+    @Synchronized
+    fun beginEncounter(): PeerPresentSession? {
+        activeSession()?.let { return it }
+        val tap = ambientProfile() ?: return null
+        val now = clock()
+        while (encounterStarts.isNotEmpty() && now - encounterStarts.first() > 60_000) encounterStarts.removeFirst()
+        if (encounterStarts.size >= MAX_ENCOUNTERS_PER_MINUTE) {
+            log.event(PeerLog.TAG_AMBIENT, "ambient_rate_limited", "encounters=${encounterStarts.size}")
             return null
         }
-        return s
+        encounterStarts.addLast(now)
+        val id = ByteArray(KipatApduProtocol.SESSION_ID_BYTES).also(random::nextBytes)
+        val e = PeerPresentSession(id, now + ENCOUNTER_WINDOW_MS, tap.profile, tap.bytes, tap.sha256, ambient = true)
+        encounter = e
+        log.event(PeerLog.TAG_AMBIENT, "ambient_encounter_opened", "session=${id.shortId()} bytes=${tap.bytes.size}")
+        return e
     }
 
     /** Called by the UI ticker and by [activeSession]. */
@@ -145,28 +205,43 @@ class PeerSessionStore(
     }
 
     fun onPeerHello(s: PeerPresentSession) {
-        if (session !== s) return
         helloAt = clock()
+        if (s.ambient) return
+        if (session !== s) return
         _state.value = PresentState.PeerDetected(s.expiresAtMs)
     }
 
     fun onUploadBegun(s: PeerPresentSession) {
-        if (session === s) _state.value = PresentState.ReceivingPeerProfile
+        if (!s.ambient && session === s) _state.value = PresentState.ReceivingPeerProfile
     }
 
     /** A complete, hash-checked, valid peer profile arrived (COMMIT). Delivered at most once per session pair. */
     @Synchronized
     fun onPeerProfileReceived(s: PeerPresentSession, readerSession: ByteArray, peer: NfcProfilePayload, uploadedBytes: Int) {
         val key = "${s.sessionId.toHex()}:${readerSession.toHex()}:${peer.id ?: peer.displayName}"
-        if (!deduper.firstTime(key, clock())) return
+        if (!deduper.firstTime(key, clock())) {
+            log.event(PeerLog.TAG_AMBIENT, "duplicate_exchange_ignored", "session=${s.sessionId.shortId()}")
+            return
+        }
         val isSelf = KipatPeerProfile.isSamePerson(peer, s.profile.id)
-        _state.value = PresentState.Success(++exchangeCounter, peer, isSelf)
         diagnostics(s, readerSession, peer.displayName, uploadedBytes, if (isSelf) "Own profile" else "Received")
+        if (s.ambient) {
+            log.event(PeerLog.TAG_AMBIENT, "peer_profile_received", "session=${s.sessionId.shortId()} bytes=$uploadedBytes self=$isSelf")
+            ambientListener?.onPeerDelivered(peer, s.sessionId, readerSession, uploadedBytes)
+            return
+        }
+        _state.value = PresentState.Success(++exchangeCounter, peer, isSelf)
     }
 
     /** The receiver finished (COMPLETE). Ends the sharing window: one exchange per Present. */
     @Synchronized
     fun onExchangeComplete(s: PeerPresentSession, readerSession: ByteArray, peerUploaded: Boolean) {
+        if (s.ambient) {
+            // One exchange per encounter; the next touch opens a new one.
+            if (encounter === s) encounter = null
+            log.event(PeerLog.TAG_AMBIENT, "exchange_complete", "session=${s.sessionId.shortId()} uploaded=$peerUploaded")
+            return
+        }
         if (session !== s) return
         session = null
         if (!peerUploaded && _state.value !is PresentState.Success) {
@@ -195,7 +270,7 @@ class PeerSessionStore(
 
     private fun diagnostics(s: PeerPresentSession, reader: ByteArray, peerName: String?, uploaded: Int, result: String) {
         _diagnostics.value = PeerDiagnostics(
-            role = "Presenter",
+            role = if (s.ambient) "Responder (Kipat Tap)" else "Presenter (manual)",
             protocolVersion = KipatApduProtocol.PROTOCOL_VERSION.toInt(),
             peerName = peerName,
             downloadedBytes = s.profileBytes.size,
@@ -208,7 +283,11 @@ class PeerSessionStore(
     }
 
     companion object {
-        /** How long "Present my Kipat" stays readable. */
+        /** How long the developer's manual "Present my Kipat" stays readable. Not used by Kipat Tap. */
         const val PRESENT_WINDOW_MS = 60_000L
+        /** One NFC encounter: bootstrap read → Kipat exchange. Generous for an initiator cold start. */
+        const val ENCOUNTER_WINDOW_MS = 20_000L
+        /** Bounds how often any reader can open encounters (drain/abuse protection). */
+        const val MAX_ENCOUNTERS_PER_MINUTE = 20
     }
 }

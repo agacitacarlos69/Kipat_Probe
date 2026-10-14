@@ -23,6 +23,7 @@ class KipatApduProcessor(
     private var readerSession: ByteArray? = null
     private var upload: Upload? = null
     private var committed = false
+    private var commands = 0
 
     private class Upload(val length: Int, val sha256: ByteArray) {
         val buffer = ByteArray(length)
@@ -39,6 +40,8 @@ class KipatApduProcessor(
         if (cla == KipatApduProtocol.CLA_ISO && ins == KipatApduProtocol.INS_SELECT) return select(apdu)
         if (!selected) return Sw.NOT_FOUND.bytes
         if (cla != KipatApduProtocol.CLA_KIPAT) return Sw.CLA_NOT_SUPPORTED.bytes
+        // Any reader is untrusted: one link gets a bounded number of commands.
+        if (++commands > MAX_COMMANDS_PER_LINK) return Sw.CONDITIONS_NOT_SATISFIED.bytes
 
         // Every Kipat command needs the user's armed, unexpired Present session — the same one this link said HELLO to.
         val session = store.activeSession() ?: return Sw.CONDITIONS_NOT_SATISFIED.bytes.also {
@@ -83,7 +86,10 @@ class KipatApduProcessor(
         }
         selected = true
         resetLink()
-        log.event(PeerLog.TAG_HCE, "hce_aid_selected", "aid=${KipatApduProtocol.AID_HEX}")
+        commands = 0
+        // Kipat Tap: opens (or reuses) the ambient encounter when eligible; a manual session wins.
+        val s = store.beginEncounter()
+        log.event(PeerLog.TAG_HCE, "kipat_aid_selected", "session=${s?.sessionId?.shortId() ?: "none"} ambient=${s?.ambient}")
         return KipatApduProtocol.ok(byteArrayOf(KipatApduProtocol.PROTOCOL_VERSION))
     }
 
@@ -179,6 +185,11 @@ class KipatApduProcessor(
     }
 
     // ------------------------------------------------------------------------------- parsing
+
+    companion object {
+        /** Enough for a 4 KB profile both ways at the smallest 16-byte chunk, with retries. */
+        const val MAX_COMMANDS_PER_LINK = 640
+    }
 
     private fun resetLink() {
         linkSession = null

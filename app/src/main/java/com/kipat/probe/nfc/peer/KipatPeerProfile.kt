@@ -20,6 +20,9 @@ fun interface PeerLog {
         const val TAG_HCE = "KipatHce"
         const val TAG_READER = "KipatPeerReader"
         const val TAG_PROTOCOL = "KipatPeerProtocol"
+        const val TAG_AMBIENT = "KipatAmbientNfc"
+        const val TAG_TYPE4 = "KipatType4"
+        const val TAG_LAUNCH = "KipatTapLaunch"
         val NONE = PeerLog { _, _, _ -> }
     }
 }
