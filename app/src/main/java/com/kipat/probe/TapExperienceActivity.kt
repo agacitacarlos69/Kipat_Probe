@@ -32,6 +32,7 @@ import com.kipat.probe.reveal.RevealQualityPolicy
 import com.kipat.probe.reveal.RevealScreen
 import com.kipat.probe.reveal.RevealSource
 import com.kipat.probe.reveal.RevealTrace
+import com.kipat.probe.reveal.TapDebouncer
 import com.kipat.probe.model.AuthenticityState
 import com.kipat.probe.ui.theme.KipatTheme
 
@@ -50,8 +51,7 @@ class TapExperienceActivity : ComponentActivity() {
     private var runKey by mutableIntStateOf(0)
     private var connected by mutableStateOf(false)
     private var quality = RevealQuality.HIGH
-    private var lastTapKey: String? = null
-    private var lastTapAt = 0L
+    private val debouncer = TapDebouncer()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         trace = RevealTrace(intent?.getLongExtra(RevealLauncher.EXTRA_LAUNCH_UPTIME, -1L)?.takeIf { it > 0 })
@@ -153,15 +153,10 @@ class TapExperienceActivity : ComponentActivity() {
         RevealPayloadCodec.hasPayload { intent.getStringExtra(it) } &&
             intent.getStringExtra(EXTRA_NONCE) == PROCESS_NONCE
 
-    private fun isDuplicate(next: RevealPayload): Boolean {
-        val key = next.cardId ?: return false
-        return key == lastTapKey && SystemClock.elapsedRealtime() - lastTapAt < DUPLICATE_WINDOW_MS && next.source == RevealSource.NFC_TAG
-    }
+    private fun isDuplicate(next: RevealPayload): Boolean =
+        debouncer.isDuplicate(next.cardId, next.source, SystemClock.elapsedRealtime())
 
-    private fun rememberTap(p: RevealPayload) {
-        lastTapKey = p.cardId
-        lastTapAt = SystemClock.elapsedRealtime()
-    }
+    private fun rememberTap(p: RevealPayload) = debouncer.accept(p.cardId, SystemClock.elapsedRealtime())
 
     private fun onMilestone(m: RevealMilestone) {
         val view = window.decorView
@@ -235,7 +230,6 @@ class TapExperienceActivity : ComponentActivity() {
 
     companion object {
         private const val STATE_RUN_KEY = "kipat.reveal.runKey"
-        private const val DUPLICATE_WINDOW_MS = 1_500L
         const val EXTRA_NONCE = "kipat.reveal.nonce"
 
         /** Random per-process token; never persisted or logged. */

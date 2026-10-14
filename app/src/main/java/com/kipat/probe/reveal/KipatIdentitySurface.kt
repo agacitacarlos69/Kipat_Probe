@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -270,17 +272,20 @@ fun IdentityMark(
     modifier: Modifier = Modifier,
 ) {
     val shape: Shape = if (isOrganization) RoundedCornerShape(size * 0.24f) else CircleShape
-    val description = when {
-        image != null && isOrganization -> "Logo of $displayName"
-        image != null -> "Photo of $displayName"
-        else -> displayName
-    }
     Box(
         modifier
             .size(size)
             .clip(shape)
             .background(accent.copy(alpha = 0.12f).compositeOver(surface))
-            .semantics { contentDescription = description },
+            .then(
+                // A photo or logo is content; a monogram only repeats the name that follows it,
+                // so screen readers skip it (preflight A11Y-2).
+                when {
+                    image != null && isOrganization -> Modifier.semantics { contentDescription = "Logo of $displayName" }
+                    image != null -> Modifier.semantics { contentDescription = "Photo of $displayName" }
+                    else -> Modifier.clearAndSetSemantics { }
+                },
+            ),
         contentAlignment = Alignment.Center,
     ) {
         if (image != null) {
@@ -300,6 +305,7 @@ fun IdentityMark(
  * chip on the same row; one line of detail only when something is wrong. Colour is never the only
  * signal. Accessible as "Authenticity: <label>. <detail>".
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AuthenticityRow(
     state: AuthenticityState,
@@ -321,18 +327,26 @@ fun AuthenticityRow(
         Row(Modifier.heightIn(min = 24.dp), verticalAlignment = Alignment.CenterVertically) {
             TrustGlyph(state, tint, accent)
             Spacer(Modifier.width(8.dp))
-            Text(p.label, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium), color = tint, modifier = Modifier.weight(1f))
-            if (p.demoNote != null) {
-                Spacer(Modifier.width(12.dp))
-                Text(
-                    p.demoNote,
-                    style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.sp),
-                    color = colors.textTertiary,
-                    maxLines = 1,
-                    modifier = Modifier
-                        .border(1.dp, style.rule, RoundedCornerShape(8.dp))
-                        .padding(horizontal = 8.dp, vertical = 2.dp),
-                )
+            // The demo chip sits at the end of the row and wraps below the label when the row is
+            // too narrow (large font), instead of squeezing the state words (preflight FONT-2).
+            FlowRow(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                itemVerticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(p.label, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium), color = tint, modifier = Modifier.padding(end = 12.dp))
+                if (p.demoNote != null) {
+                    Text(
+                        p.demoNote,
+                        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.sp),
+                        color = colors.textTertiary,
+                        maxLines = 1,
+                        modifier = Modifier
+                            .border(1.dp, style.rule, RoundedCornerShape(8.dp))
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                    )
+                }
             }
         }
         if (showDetail) {

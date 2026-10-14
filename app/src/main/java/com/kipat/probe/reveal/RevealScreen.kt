@@ -22,6 +22,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -54,6 +55,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Density
@@ -197,20 +199,24 @@ fun RevealStage(
     Box(
         Modifier
             .fillMaxSize()
-            .onGloballyPositioned { coords[0] = it; measureCard() }
-            .then(
-                if (contained) {
-                    Modifier
-                } else {
-                    Modifier.clickable(
+            .onGloballyPositioned { coords[0] = it; measureCard() },
+    ) {
+        if (!contained) {
+            // Tap outside to dismiss. A sibling *behind* the surface, not a clickable parent: a
+            // clickable parent merged the whole identity into one "Dismiss" node for TalkBack
+            // (docs/device-validation/preflight-issues.md, A11Y-1). Hidden from accessibility;
+            // the Close button and Back are the accessible ways to dismiss.
+            Spacer(
+                Modifier
+                    .fillMaxSize()
+                    .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
-                        onClickLabel = "Dismiss",
                         onClick = onDismiss,
                     )
-                },
-            ),
-    ) {
+                    .clearAndSetSemantics { },
+            )
+        }
         Canvas(Modifier.fillMaxSize()) {
             val ms = elapsedMs()
             // Backdrop: quick to its base, then deepens as the surface resolves; the app underneath stays faintly visible.

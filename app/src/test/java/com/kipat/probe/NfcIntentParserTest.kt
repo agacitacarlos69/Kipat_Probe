@@ -6,6 +6,7 @@ import com.kipat.probe.nfc.NfcIntentParser
 import com.kipat.probe.nfc.TapChannel
 import com.kipat.probe.reveal.RevealTemplateId
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -88,6 +89,13 @@ class NfcIntentParserTest {
         assertEquals("KPT-DEMO-0001", t.cardId)
         assertEquals("Vash Puno", t.hints.name)
         assertEquals(RevealTemplateId.PRECISION_ORBIT, t.hints.template)
+    }
+
+    @Test
+    fun organisationHintIsHonouredOnlyOnTheDebugLink() {
+        assertTrue(NfcIntentParser.parse("kipatprobe://tap/KPT-1?n=Globe%20Labs&k=org")!!.hints.debugOrganization)
+        // A real card can't claim to be an organisation through an unsigned hint.
+        assertFalse(NfcIntentParser.parse("https://kipat.app/c/KPT-1?n=Globe%20Labs&k=org")!!.hints.debugOrganization)
     }
 
     @Test

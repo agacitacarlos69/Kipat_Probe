@@ -126,6 +126,7 @@ object RevealResolver {
             hints.template?.let { result = result.copy(template = it) }
             hints.theme?.let { result = result.copy(theme = it) }
             hints.debugAuthenticity?.let { result = result.copy(authenticity = it, isDemo = true) }
+            if (hints.debugOrganization) result = result.copy(isOrganization = true)
         }
         return result
     }

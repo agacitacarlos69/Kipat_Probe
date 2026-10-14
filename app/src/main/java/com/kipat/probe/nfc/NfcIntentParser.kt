@@ -31,6 +31,8 @@ data class TapHints(
     val theme: RevealTheme? = null,
     /** Only honoured for [TapChannel.DEBUG_DEEP_LINK] so QA can exercise every badge state. */
     val debugAuthenticity: AuthenticityState? = null,
+    /** `k=org`, debug link only: show the identity as an organisation (device validation of the company case). */
+    val debugOrganization: Boolean = false,
 ) {
     val hasIdentity: Boolean get() = name != null
 }
@@ -50,7 +52,7 @@ data class TapTarget(
  *  - `https://kipat.app/c/{cardId}?n=&s=&o=&t=&th=`  (current card format)
  *  - `https://kipat.app/tap/{cardId}` and `/p/{cardId}` (aliases)
  *  - `https://probe.kipat.com[/…]` (tags written by the original probe)
- *  - `kipatprobe://tap/{cardId}?…&a=` (debug deep link)
+ *  - `kipatprobe://tap/{cardId}?…&a=&k=org` (debug deep link)
  */
 object NfcIntentParser {
     const val CARD_HOST = "kipat.app"
@@ -101,6 +103,7 @@ object NfcIntentParser {
         template = q["t"]?.takeIf { RevealTemplateId.isKnown(it) }?.let { RevealTemplateId.fromWireId(it) },
         theme = q["th"]?.let { RevealTheme.fromWireId(it) },
         debugAuthenticity = if (allowAuthenticity) q["a"]?.let { AuthenticityState.fromWireId(it) } else null,
+        debugOrganization = allowAuthenticity && q["k"] == "org",
     )
 
     private fun parseQuery(raw: String?): Map<String, String> {
