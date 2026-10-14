@@ -2,9 +2,16 @@
 
 Two architectures: **physical cards** (NDEF, this document and
 [nfc-self-contained-profile.md](nfc-self-contained-profile.md)) and **phone to phone** (Host Card
-Emulation + reader mode + APDUs, [nfc-phone-to-phone.md](nfc-phone-to-phone.md)). They share
-the public profile schema and the Reveal, nothing else. Touching two phones never goes through
-NDEF, and Android Beam is not used.
+Emulation + a tiny Type 4 NDEF bootstrap + APDUs: **Kipat Tap**, [nfc-phone-to-phone.md](nfc-phone-to-phone.md),
+[feasibility](nfc/ambient-peer-feasibility.md)). They share the public profile schema, the
+validator and the Reveal. The phone-to-phone NDEF carries no profile and only launches Kipat.
+Android Beam is not used.
+
+**Android 17 (API 37):** NFC intents are dispatched only to activities protected by
+`android.permission.DISPATCH_NFC_MESSAGE` when targeting SDK > 36, and never to apps in the stopped
+state. All NDEF filters therefore live on two `activity-alias`es of `TapExperienceActivity`:
+`NfcTapEntry` (enabled below API 37) and `NfcTapEntryProtected` (enabled on 37+), switched by
+`res/values*/bools.xml`.
 
 ## Reading: card tap → Reveal
 

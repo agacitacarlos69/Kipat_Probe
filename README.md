@@ -26,7 +26,7 @@ migrated, not discarded.
 | Connections, taps, profile publishing | **Local demo data, in memory** — resets when the process dies |
 | Authenticity / verification | **Not implemented.** Sample data shows "Verified · demo"; tag-supplied names show "Unverified" |
 | Self-contained NFC test profile cards | Implemented (Developer tools → NFC full profile test); **not yet tested on hardware** |
-| Phone-to-phone NFC (Share → Share with another Kipat) | **Implemented, protocol-tested in a JVM simulation; physical two-phone test pending.** HCE presenter + reader-mode receiver, mutual profile exchange, never auto-connects ([`docs/nfc-phone-to-phone.md`](docs/nfc-phone-to-phone.md)) |
+| Kipat Tap: phone-to-phone NFC from any app | **Implemented and simulated; physical validation required.** Touch two unlocked phones, Kipat not open: a Type 4 NDEF bootstrap launches Kipat on the reading phone, which then exchanges profiles with the HCE phone; both are meant to show a Reveal; never auto-connects. One-time consent; setting under Profile ([`docs/nfc-phone-to-phone.md`](docs/nfc-phone-to-phone.md), [feasibility](docs/nfc/ambient-peer-feasibility.md)). The manual Present/Receive mode is under Developer tools |
 | Kipat Plus, billing, backend, NTAG 424 | Not implemented (placeholders only) |
 
 ## Build

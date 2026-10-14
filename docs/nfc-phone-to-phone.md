@@ -1,7 +1,59 @@
 # Phone-to-phone NFC (Kipat ↔ Kipat)
 
-**Status: IMPLEMENTED · PROTOCOL-TESTED (JVM simulation) · PHYSICAL TEST PENDING.** No two
-physical phones have run this yet. Nothing here claims it works on hardware.
+**Status: IMPLEMENTED · SIMULATED · PHYSICAL VALIDATION REQUIRED.** No two physical phones have
+run this yet. Nothing here claims it works on hardware.
+
+## Product model: Kipat Tap
+
+| | Before (v1 UX) | Now |
+|---|---|---|
+| Consumer flow | Open Kipat → Share with another Kipat → **Present** (60 s) on one phone, **Receive** on the other | Unlock both phones and touch them, from **any app**. Kipat doesn't need to be open |
+| Roles | Chosen by the people | Decided by the NFC controllers (whichever phone polls is the initiator); invisible to people |
+| Two-way | "Send my profile back" toggle | Always mutual |
+| Privacy control | Per tap | One-time disclosure + **Kipat Tap** on/off (Home, Share, Profile) |
+| Explicit Present/Receive | Consumer screen | Developer tools → **Manual NFC peer test** only |
+
+Feasibility evidence and limits: [nfc/ambient-peer-feasibility.md](nfc/ambient-peer-feasibility.md).
+
+### Kipat Tap flow
+
+```
+both phones: unlocked, NFC on, Kipat Tap enabled, public snapshot published (Kipat not open)
+
+INITIATOR (its NFC controller polled)                RESPONDER (its NFC controller listened)
+Android NDEF-checks the other phone   ── SELECT D2760000850101 / CC / NDEF ──►  KipatHceService → KipatType4Tag
+  bootstrap: MIME application/vnd.kipat.peer                                    opens an encounter session
+  {"v":1,"t":"iso-dep","p":1,"s":<8-byte nonce>} + AAR com.kipat.probe          from the snapshot (if eligible)
+dispatches ACTION_NDEF_DISCOVERED → NfcTapEntry alias
+  → TapExperienceActivity → KipatTapInitiator
+  IsoDep.get(EXTRA_TAG), same contact
+  SELECT F04B4950415401 → HELLO (session == nonce) → META → READ…  ◄────────── public profile
+  BEGIN/WRITE/COMMIT own profile                     ─────────────────────────►  verify, parse → KipatTapLauncher
+  COMPLETE                                                                        startActivity(TapExperienceActivity)
+Reveal of responder (same activity, pending → Reveal)                             Reveal of initiator
+```
+
+- The **bootstrap** carries no profile; it only makes the other phone's Android open Kipat.
+  Record order: MIME first (dispatch), AAR last (pins the package, Play fallback).
+- **Initiator Reveal:** the dispatched `TapExperienceActivity` draws nothing (the other app stays
+  visible) until the peer profile is verified, then starts the Reveal in place. No splash screen,
+  no Kipat Home underneath; dismissing returns to the previous app.
+- **Link lost** during the Activity start: "Keep the phones together"; reader mode (now legal,
+  Kipat is foreground) reacquires for up to 10 s, then exits cleanly.
+- **Responder Reveal:** `KipatTapLauncher` starts the Reveal from inside the HCE transaction,
+  with an explicit intent and a nonce-protected payload. Android's NFC stack binds HCE services with
+  `BIND_ALLOW_BACKGROUND_ACTIVITY_STARTS`; a watchdog logs `background_launch_allowed` or
+  `background_launch_blocked`. If an OEM blocks it, the person still appears under Recent.
+- **Exactly once:** `IncomingKipatExchangeStore` delivers each peer once per 8 s across both
+  roles (re-polls, re-reads and role flips in one touch), so there is one Reveal and one recent
+  tap per phone. A deliberate re-tap later works.
+- **Encounters** (`PeerSessionStore.beginEncounter`): created on SELECT only while Kipat Tap is
+  eligible, reused for 20 s so the bootstrap nonce equals the HELLO session id, closed by
+  COMPLETE, at most 20 per minute. There is no 60-second consumer session.
+- **Android 17:** NFC intents reach only `DISPATCH_NFC_MESSAGE`-protected activities when
+  targeting SDK > 36, and never apps in the stopped state. The NDEF filters live on two aliases
+  and one is enabled per API level. Kipat must have been opened once; force-stop disables it until
+  the next launch.
 
 Kipat has two NFC architectures that solve different problems:
 
@@ -27,7 +79,7 @@ Android Beam (NDEF push over LLCP/SNEP: `setNdefPushMessage`, `setNdefPushMessag
 deprecated in Android 10 (API 29) and its APIs were removed in Android 14 (API 34). Kipat does not use it or any peer-to-peer
 LLCP API.
 
-## Architecture
+## Architecture (second stage, shared by Kipat Tap and manual mode)
 
 ```
 PHONE A — "Present my Kipat"                 PHONE B — "Receive a Kipat"
@@ -46,8 +98,8 @@ KipatHceService (HostApduService)            KipatPeerReader (NfcAdapter.enableR
   `finally`. Reader mode is on **only** while "Receive a Kipat" is active and the screen is
   resumed, so it never takes over physical card taps elsewhere. These flags are not used by
   the physical-card reader.
-- **Explicit roles.** One phone presents, the other receives. No automatic role negotiation in
-  v1: deterministic beats magical.
+- **Manual mode** (Developer tools → Manual NFC peer test): one phone presents for 60 s, the
+  other receives in reader mode. Kept for diagnosing OEMs; Kipat Tap replaces it for people.
 
 ## AID
 
@@ -127,6 +179,23 @@ B: COMPLETE  (A's window closes)
 
 ## Privacy and trust
 
+- **Consent:** Kipat Tap is off until the person accepts a one-time disclosure ("Kipat Tap works
+  while your phone is unlocked and NFC is on, even when Kipat isn't open. Only your published
+  profile is shared."). After that it's a setting (Profile → Kipat Tap), never a per-tap choice.
+- **Locked phones never answer** (`requireDeviceUnlock`). Android itself asks to unlock and tap
+  again; with Secure NFC on, nothing works from the lock screen.
+- **Snapshot:** the served profile is `filesDir/kipat_tap_profile.json`, built from
+  `Identity.publishedFields()` and replaced atomically when the profile changes. It is parsed with
+  the same validator as received profiles. No backend, no network.
+- **Untrusted readers:** a link gets 640 commands at most, and a phone opens at most 20
+  encounters per minute. Reads and uploads are bounded (4 KB) and only the public profile is
+  served. Any NFC phone can read the bootstrap: it reveals only that Kipat is installed (and its
+  AAR opens Kipat's Play listing on phones without it).
+- **Untrusted tags:** the bootstrap is parsed strictly (exact keys, versions, nonce format). A
+  profile is only shown after SELECT of the Kipat AID, a supported version, bounded size,
+  SHA-256 and full profile validation. An intent spoofing the bootstrap gets nothing: the profile
+  only comes from a live IsoDep exchange.
+
 - **Shared:** the public profile built from `Identity.publishedFields()` — the same boundary the
   Reveal uses — as `NfcProfilePayload`: id (card id), type, name, headline, organisation, role,
   bio, avatar URL (https only; never image bytes), website/GitHub/LinkedIn as https links,
@@ -149,6 +218,18 @@ B: COMPLETE  (A's window closes)
 | Routing into the existing Reveal | Behaviour on phones nobody has tested |
 
 ## Logs
+
+Kipat Tap adds `KipatAmbientNfc` (`ambient_encounter_opened`, `ambient_initiator_created`,
+`ndef_dispatched`, `isodep_connected`, `peer_profile_received`, `exchange_complete`, `link_lost`,
+`duplicate_exchange_ignored`, `ambient_rate_limited`), `KipatType4` (`type4_selected`,
+`bootstrap_read`, `type4_refused`) and `KipatTapLaunch` (`initiator_reveal_requested`,
+`responder_reveal_requested`, `background_launch_allowed`, `background_launch_blocked`).
+Android logs blocked background starts as "Background activity launch blocked!" under
+`ActivityTaskManager`.
+
+Android Studio filter: `tag~:KipatAmbientNfc|KipatType4|KipatHce|KipatPeerProtocol|KipatPeerReader|KipatTapLaunch|KipatReveal|ActivityTaskManager`
+
+Manual mode and the shared protocol:
 
 Tags: `KipatPeerNfc` (session), `KipatHce` (presenter service), `KipatPeerReader` (receiver),
 `KipatPeerProtocol` (protocol steps). Events, no profile content or bytes:
@@ -178,6 +259,11 @@ exchange (role, peer, bytes each way, integrity, measured duration, short sessio
   any such behaviour in the OEM matrix; no OEM-specific code until a device shows it is needed.
 
 ## Two-phone test
+
+- **Kipat Tap (primary acceptance):** `tools/device-validation/kipat-ambient-two-phone-validate.sh`
+  (`PHONE_A_SERIAL` / `PHONE_B_SERIAL`; scenarios apps, home, killed, locked, forcestop) and
+  [`ambient-two-phone-checklist.md`](device-validation/_template/ambient-two-phone-checklist.md).
+- **Manual mode:**
 
 Kit: `tools/device-validation/kipat-two-phone-validate.sh` (serial selection via
 `PRESENTER_SERIAL` / `RECEIVER_SERIAL`, refuses emulators and identical serials) and

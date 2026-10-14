@@ -72,9 +72,9 @@ step_install() {
 }
 
 step_open() {
-  log "open Share with another Kipat on both phones"
+  log "open the Manual NFC peer test (Developer tools) on both phones"
   for s in "$P" "$R"; do
-    on "$s" shell am start -W -n "$PKG/.MainActivity" --es kipat.nav.destination share/nearby >/dev/null
+    on "$s" shell am start -W -n "$PKG/.MainActivity" --es kipat.nav.destination profile/developer/nfc-manual-peer >/dev/null
   done
 }
 
@@ -85,7 +85,7 @@ shot() { # shot <serial> <stem>
 
 touch_round() { # touch_round <label> <presenter serial> <receiver serial>
   local label=$1 pres=$2 recv=$3
-  log "[$label] PRESENTER ($pres): tap Present my Kipat.  RECEIVER ($recv): tap Receive a Kipat."
+  log "[$label] PRESENTER ($pres): tap Present my Kipat (manual).  RECEIVER ($recv): tap Receive a Kipat."
   log "[$label] then hold the backs of the phones together until both confirm. Capturing ${WAIT_S}s of logs…"
   on "$pres" logcat -c || true
   on "$recv" logcat -c || true

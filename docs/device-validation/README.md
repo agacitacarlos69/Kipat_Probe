@@ -47,7 +47,7 @@ template (`ripple orbit lines aperture spatial minimal-fade`), `th` accent
 4. Physical NFC: Profile → Developer tools → Write to tag, tap an NTAG213/215/216; then with
    another app open, tap the tag (warm), then `adb shell am force-stop com.kipat.probe` and tap
    again (cold). Capture `adb logcat -s KipatReveal:I` during each tap.
-5. Phone-to-phone NFC: see [below](#phone-to-phone-nfc-two-phones).
+5. Kipat Tap: see [below](#kipat-tap-two-phones-primary).
 6. Full profile NFC test (needs an NTAG215 or NTAG216; an NTAG213 for the too-large case). Run
    `tools/device-validation/kipat-device-validate.sh nfcprofile`, which opens the screen and
    captures `KipatNfcProfile` / `KipatReveal` logs (sizes and result types only, no profile
@@ -72,7 +72,36 @@ template (`ripple orbit lines aperture spatial minimal-fade`), `th` accent
    affected phase and mark the issue FIXED with the new evidence.
 8. Add a row to `oem-matrix.md`. One phone verifies one phone.
 
-## Phone-to-phone NFC (two phones)
+## Kipat Tap (two phones, primary)
+
+Two physical NFC phones, same build, different profiles. **Neither person opens Kipat for the
+test.** Checklist: [`_template/ambient-two-phone-checklist.md`](_template/ambient-two-phone-checklist.md).
+Feasibility and limits: [`../nfc/ambient-peer-feasibility.md`](../nfc/ambient-peer-feasibility.md).
+
+```bash
+adb devices -l
+PHONE_A_SERIAL=<A> PHONE_B_SERIAL=<B> tools/device-validation/kipat-ambient-two-phone-validate.sh            # info install setup apps home killed locked
+PHONE_A_SERIAL=<A> PHONE_B_SERIAL=<B> tools/device-validation/kipat-ambient-two-phone-validate.sh forcestop  # separate: force-stop behaviour
+DRY_RUN=1 PHONE_A_SERIAL=a PHONE_B_SERIAL=b tools/device-validation/kipat-ambient-two-phone-validate.sh     # print commands only
+```
+
+The script installs, opens Kipat once (so you can set profiles and enable Kipat Tap), kills the
+process with `am kill` (not force-stop), puts a browser / Settings / launcher in front, then
+waits for you to **touch the phones** and captures logs, `dumpsys nfc`, the resumed activity and
+screenshots after the touch and after dismissing. Output: `docs/device-validation/ambient/<A>__<B>/`.
+
+Manually, without a computer:
+
+1. Both phones: install the same APK, open Kipat once, set a different profile on each
+   (Profile → Edit profile), then Home → **Turn on Kipat Tap** → **Enable Kipat Tap**. NFC on.
+2. Close Kipat (Home or swipe it away; don't force-stop). Phone A: open Chrome. Phone B: open Settings.
+3. Unlock both and hold the backs together, upper halves first, until both react.
+4. PASS only if **A shows B's Reveal and B shows A's Reveal** with no other action, dismissing
+   returns A to Chrome and B to Settings, and neither appears in Connections until Connect.
+5. Repeat: both on the home screen; A locked (A must share nothing); Kipat Tap off on one phone.
+6. Logs: `adb logcat -s KipatAmbientNfc:I KipatType4:I KipatHce:I KipatPeerProtocol:I KipatPeerReader:I KipatTapLaunch:I KipatReveal:I ActivityTaskManager:W`
+
+## Phone-to-phone NFC — manual mode (two phones, diagnostics)
 
 Needs two physical NFC phones with the same build. Checklist:
 [`_template/two-phone-checklist.md`](_template/two-phone-checklist.md). Protocol:
@@ -92,7 +121,7 @@ Every adb call is bound to one serial; identical serials and emulators are refus
 Manually (one computer per phone is fine, or none):
 
 1. Both phones: NFC on, screen unlocked, Kipat installed, profile set (Profile → Edit profile).
-2. Both: Home → **Share** → **Share with another Kipat**.
+2. Both: Profile → Developer tools → **Manual NFC peer test**.
 3. Phone A: **Present my Kipat** → "Ready to share". Phone B: **Receive a Kipat** → "Looking for Kipat".
 4. Hold the backs together, upper halves first; move slowly until one vibrates; keep still.
 5. Expect B: "Kipat found" → "Receiving profile" → "Exchanging profiles" → A's Reveal.
