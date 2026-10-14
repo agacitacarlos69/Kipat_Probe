@@ -28,7 +28,7 @@ import com.kipat.probe.nfc.peer.PresentState
 import com.kipat.probe.nfc.profile.NfcProfilePayload
 import com.kipat.probe.reveal.RevealPayloadCodec
 import com.kipat.probe.reveal.RevealSource
-import com.kipat.probe.ui.screens.share.NearbyShareScreen
+import com.kipat.probe.ui.screens.developer.ManualPeerTestScreen
 import com.kipat.probe.ui.theme.KipatTheme
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -44,11 +44,11 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import org.xmlpull.v1.XmlPullParser
 
-/** Phone-to-phone NFC: registration, the public-profile boundary, capability states and the share UI (off-device). */
+/** Phone-to-phone NFC: HCE registration, the public-profile boundary, capability states and the Developer manual peer test (off-device). */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(qualifiers = "w411dp-h891dp-notnight-xxhdpi")
-class NearbyShareTest {
+class ManualPeerTestScreenTest {
 
     @get:Rule
     val compose = createComposeRule()
@@ -77,7 +77,7 @@ class NearbyShareTest {
                 "aid-filter" -> aids += xml.getAttributeValue(ns, "name")
             }
         }
-        assertEquals(listOf(KipatApduProtocol.AID_HEX), aids)
+        assertEquals(listOf(com.kipat.probe.nfc.peer.KipatType4Tag.NDEF_AID_V2_HEX, KipatApduProtocol.AID_HEX), aids)
         assertEquals("other", category)
         assertEquals("true", unlock)
     }
@@ -117,20 +117,19 @@ class NearbyShareTest {
 
     @Test
     fun withoutNfcBothRolesAreOffAndExplained() {
-        compose.setContent { KipatTheme { NearbyShareScreen(onBack = {}) } }
+        compose.setContent { KipatTheme { ManualPeerTestScreen(onBack = {}) } }
         compose.onNodeWithText("Touch phones to share").assertIsDisplayed()
         compose.onNodeWithText("This phone doesn't have NFC, so it can't share by touch.").assertIsDisplayed()
         compose.onNodeWithText("Present my Kipat").assertIsNotEnabled()
         compose.onNodeWithText("Receive a Kipat").assertIsNotEnabled()
         compose.onNodeWithText("Send my profile back").assertIsDisplayed()
         screenshot("nfc-peer-choose-role")
-        assertNoProtocolJargon()
     }
 
     @Test
     fun presentingShowsWhatIsSharedAndTheCountdown() {
         KipatPeerSessions.presenter.arm(KipatPeerProfile.fromIdentity(SampleData.identity))
-        compose.setContent { KipatTheme { NearbyShareScreen(onBack = {}) } }
+        compose.setContent { KipatTheme { ManualPeerTestScreen(onBack = {}) } }
         compose.onNodeWithText("Ready to share").assertIsDisplayed()
         compose.onNodeWithText("Hold the back of this phone near another Kipat phone.").assertIsDisplayed()
         compose.onNodeWithText("Vash Puno").assertIsDisplayed()
@@ -144,7 +143,7 @@ class NearbyShareTest {
     fun presenterOpensTheReceivedKipatOnceAndDoesNotConnect() {
         val store = KipatPeerSessions.presenter
         store.arm(KipatPeerProfile.fromIdentity(SampleData.identity))
-        compose.setContent { KipatTheme { NearbyShareScreen(onBack = {}) } }
+        compose.setContent { KipatTheme { ManualPeerTestScreen(onBack = {}) } }
         // Phone B uploads its profile through the real processor.
         val peer = NfcProfilePayload(id = "KPT-PEER-1", displayName = "José Dela Cruz", headline = "BS Architecture")
         val bytes = KipatPeerProfile.toBytes(peer)

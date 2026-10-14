@@ -13,6 +13,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import com.kipat.probe.data.KipatRepository
@@ -56,8 +57,10 @@ class AppSmokeTest {
     fun cardAndLegacyProbeTagsResolveToRevealActivity() {
         listOf("https://kipat.app/c/KPT-DEMO-0001", "https://probe.kipat.com").forEach { uri ->
             val intent = Intent(NfcAdapter.ACTION_NDEF_DISCOVERED, Uri.parse(uri))
-            val matches = context.packageManager.queryIntentActivities(intent, 0).map { it.activityInfo.name }
-            assertEquals(uri, listOf(TapExperienceActivity::class.java.name), matches)
+// NFC dispatch goes through the API-gated alias (Android 17 rule); below API 37 the unprotected one.
+            val matches = context.packageManager.queryIntentActivities(intent, 0).map { it.activityInfo }
+            assertEquals(uri, listOf("com.kipat.probe.NfcTapEntry"), matches.map { it.name })
+            assertEquals(uri, TapExperienceActivity::class.java.name, matches.single().targetActivity)
         }
     }
 
@@ -146,7 +149,8 @@ class AppSmokeTest {
             compose.onNodeWithText("Profile type").assertExists()
             screenshot("profile-edit")
             compose.onNodeWithContentDescription("Close").performClick() // no changes → closes without asking
-            compose.onNodeWithText("Developer tools").performClick()
+            // The Kipat Tap row pushed it below the navigation bar: scroll before tapping.
+            compose.onNodeWithText("Developer tools").performScrollTo().performClick()
             compose.onNodeWithText("Write to tag").assertExists()
             compose.onNodeWithText("Not present").assertExists() // Robolectric has no NFC adapter
             screenshot("developer")

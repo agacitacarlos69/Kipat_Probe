@@ -139,8 +139,9 @@ class NfcProfileRevealTest {
     @Test
     fun profileMimeTagResolvesToRevealActivity() {
         val intent = Intent(NfcAdapter.ACTION_NDEF_DISCOVERED).setType(NfcProfileFormat.MIME_TYPE)
-        val matches = context.packageManager.queryIntentActivities(intent, 0).map { it.activityInfo.name }
-        assertEquals(listOf(TapExperienceActivity::class.java.name), matches)
+        val matches = context.packageManager.queryIntentActivities(intent, 0).map { it.activityInfo }
+        assertEquals(listOf("com.kipat.probe.NfcTapEntry"), matches.map { it.name })
+        assertEquals(TapExperienceActivity::class.java.name, matches.single().targetActivity)
     }
 
     private fun tap(records: List<NdefRecordData>) = Intent(NfcAdapter.ACTION_NDEF_DISCOVERED)

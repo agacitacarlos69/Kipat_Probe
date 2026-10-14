@@ -78,7 +78,7 @@ class KipatPeerExchangeSimulationTest {
         assertEquals(listOf(ReceiveProgress.KIPAT_DETECTED, ReceiveProgress.READING_PROFILE, ReceiveProgress.SENDING_OWN_PROFILE), progress)
         // COMPLETE closed A's sharing window.
         assertEquals(null, storeA.activeSession())
-        assertEquals("Presenter", storeA.diagnostics.value?.role)
+        assertEquals("Presenter (manual)", storeA.diagnostics.value?.role)
     }
 
     @Test
