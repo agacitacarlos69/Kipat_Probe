@@ -6,6 +6,11 @@
     <uses-feature
         android:name="android.hardware.nfc"
         android:required="false" />
+    <!-- Phone-to-phone presenting (docs/nfc-phone-to-phone.md). Optional: a phone without HCE
+         can still install Kipat and receive from another Kipat phone. -->
+    <uses-feature
+        android:name="android.hardware.nfc.hce"
+        android:required="false" />
 
     <application
         android:allowBackup="true"
@@ -79,6 +84,20 @@
                     android:scheme="https" />
             </intent-filter>
         </activity>
+
+        <!-- "Present my Kipat": Host Card Emulation for the Kipat AID (category other, never payment).
+             Only the NFC system can bind it; it serves a profile only while Present mode is armed. -->
+        <service
+            android:name=".nfc.peer.KipatHceService"
+            android:exported="true"
+            android:permission="android.permission.BIND_NFC_SERVICE">
+            <intent-filter>
+                <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.nfc.cardemulation.host_apdu_service"
+                android:resource="@xml/kipat_apdu_service" />
+        </service>
 
     </application>
 

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Kipat phone-to-phone NFC, presenter role. AID F04B4950415401 = proprietary F0 + "KIPAT" + v1;
+  the authoritative constant is KipatApduProtocol.AID_HEX (keep in sync).
+  category="other": Kipat is not a payment app and never touches the default-wallet role.
+  requireDeviceUnlock: a locked phone never answers, even if Present mode is armed.
+-->
+<host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/kipat_hce_description"
+    android:requireDeviceUnlock="true">
+    <aid-group
+        android:category="other"
+        android:description="@string/kipat_hce_aid_group">
+        <aid-filter android:name="F04B4950415401" />
+    </aid-group>
+</host-apdu-service>
