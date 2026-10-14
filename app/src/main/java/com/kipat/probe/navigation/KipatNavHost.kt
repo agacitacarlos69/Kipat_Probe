@@ -45,6 +45,7 @@ import com.kipat.probe.ui.screens.home.HomeScreen
 import com.kipat.probe.ui.screens.profile.ProfileEditScreen
 import com.kipat.probe.ui.screens.profile.ProfileScreen
 import com.kipat.probe.ui.screens.profile.RevealStyleScreen
+import com.kipat.probe.ui.screens.share.NearbyShareScreen
 import com.kipat.probe.ui.screens.share.ShareScreen
 import com.kipat.probe.ui.theme.Kipat
 import com.kipat.probe.ui.theme.KipatMotion
@@ -73,6 +74,11 @@ fun KipatApp(
                 navController.navigate(target)
             }
             target == KipatRoutes.SHARE -> navController.navigate(KipatRoutes.SHARE)
+            // Two-phone device kit opens the nearby share screen directly.
+            target == KipatRoutes.SHARE_NEARBY -> {
+                navController.navigate(KipatRoutes.SHARE)
+                navController.navigate(KipatRoutes.SHARE_NEARBY)
+            }
             // Device kit (phase nfcprofile) opens the test screen directly.
             target == KipatRoutes.NFC_PROFILE -> {
                 navController.navigateToTab(KipatDestination.Profile)
@@ -116,7 +122,10 @@ fun KipatApp(
                     onDeveloperTools = { navController.navigate(KipatRoutes.DEVELOPER) },
                 )
             }
-            pushed(KipatRoutes.SHARE) { ShareScreen(onBack = { navController.popBackStack() }) }
+            pushed(KipatRoutes.SHARE) {
+                ShareScreen(onBack = { navController.popBackStack() }, onNearby = { navController.navigate(KipatRoutes.SHARE_NEARBY) })
+            }
+            pushed(KipatRoutes.SHARE_NEARBY) { NearbyShareScreen(onBack = { navController.popBackStack() }) }
             pushed(
                 KipatRoutes.PERSON,
                 arguments = listOf(navArgument(KipatRoutes.PERSON_ID_ARG) { type = NavType.StringType }),

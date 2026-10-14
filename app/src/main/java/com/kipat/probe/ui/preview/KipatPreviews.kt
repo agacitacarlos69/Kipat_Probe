@@ -64,7 +64,7 @@ private fun ShareMethodsPreview() = Frame {
     KipatDivider()
     ActionRow("Kipat Card", icon = KipatSymbols.Nfc, supporting = "Hold your card to the back of their phone", value = "Active", valueColor = Kipat.colors.verified)
     KipatDivider()
-    ActionRow("Phone to phone", icon = KipatSymbols.Contactless, supporting = "Not available yet", enabled = false)
+    ActionRow("Share with another Kipat", icon = KipatSymbols.Contactless, supporting = "Touch phones to swap profiles", chevron = true)
 }
 
 @Preview(name = "Profile section", widthDp = 360)

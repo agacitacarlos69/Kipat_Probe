@@ -126,6 +126,7 @@ fun KipatIdentitySurface(
                 state = payload.authenticity,
                 isDemo = payload.isDemo,
                 testProfile = payload.testProfile,
+                nearbyPeer = payload.isNearbyPeer,
                 colors = colors,
                 style = style,
                 accent = palette.accent,
@@ -319,8 +320,18 @@ fun AuthenticityRow(
     modifier: Modifier = Modifier,
     /** A self-contained NFC test profile: noted as such, and never presented as verified. */
     testProfile: Boolean = false,
+    /** Received from another Kipat phone: a nearby Kipat, not a verified one. */
+    nearbyPeer: Boolean = false,
 ) {
-    val p = state.present(isDemo).let { if (testProfile) it.copy(demoNote = "Test profile") else it }
+    val p = state.present(isDemo).let {
+        when {
+            testProfile -> it.copy(demoNote = "Test profile")
+            nearbyPeer && state == AuthenticityState.UNVERIFIED ->
+                it.copy(label = "Unverified Kipat", detail = "Shared from a nearby phone and not verified", demoNote = "Nearby Kipat")
+            nearbyPeer -> it.copy(demoNote = "Nearby Kipat")
+            else -> it
+        }
+    }
     val tint = when (state) {
         AuthenticityState.AUTHENTIC -> colors.verified
         AuthenticityState.REVOKED -> colors.revoked
@@ -328,7 +339,7 @@ fun AuthenticityRow(
         else -> colors.textSecondary
     }
     val showDetail = state == AuthenticityState.REVOKED || state == AuthenticityState.ERROR
-    Column(modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = "Authenticity: ${p.label}. ${p.detail}" + (if (testProfile) ". Test profile" else "") }) {
+    Column(modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = "Authenticity: ${p.label}. ${p.detail}" + (p.demoNote.takeIf { testProfile || nearbyPeer }?.let { ". $it" } ?: "") }) {
         Row(Modifier.heightIn(min = 24.dp), verticalAlignment = Alignment.CenterVertically) {
             TrustGlyph(state, tint, accent)
             Spacer(Modifier.width(8.dp))

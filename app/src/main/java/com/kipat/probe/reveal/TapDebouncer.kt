@@ -10,8 +10,7 @@ class TapDebouncer(private val windowMs: Long = DEFAULT_WINDOW_MS) {
     private var lastAt: Long = 0L
 
     fun isDuplicate(cardId: String?, source: RevealSource, nowMs: Long): Boolean {
-        val external = source == RevealSource.NFC_TAG || source == RevealSource.DEEP_LINK
-        return external && cardId != null && cardId == lastCardId && nowMs - lastAt < windowMs
+        return source.isExternalTap && cardId != null && cardId == lastCardId && nowMs - lastAt < windowMs
     }
 
     fun accept(cardId: String?, nowMs: Long) {

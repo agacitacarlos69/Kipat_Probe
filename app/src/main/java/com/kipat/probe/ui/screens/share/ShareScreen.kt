@@ -59,7 +59,7 @@ import kotlinx.coroutines.withContext
  * note on what's not built. Replaces the old Touch tab's consumer half.
  */
 @Composable
-fun ShareScreen(onBack: () -> Unit) {
+fun ShareScreen(onBack: () -> Unit, onNearby: () -> Unit = {}) {
     val context = LocalContext.current
     val identity by KipatRepository.identity.collectAsStateWithLifecycle()
     val card by KipatRepository.card.collectAsStateWithLifecycle()
@@ -123,10 +123,11 @@ fun ShareScreen(onBack: () -> Unit) {
             )
             KipatDivider()
             ActionRow(
-                "Phone to phone",
+                "Share with another Kipat",
                 icon = KipatSymbols.Contactless,
-                supporting = "Not available yet",
-                enabled = false,
+                supporting = "Touch phones to swap profiles",
+                chevron = true,
+                onClick = onNearby,
             )
             Text(
                 "This prototype has no web profile yet, so the link and QR open kipat.app in a browser.",

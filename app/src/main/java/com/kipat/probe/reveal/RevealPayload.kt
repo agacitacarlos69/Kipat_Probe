@@ -8,7 +8,13 @@ enum class RevealSource(val wireId: String) {
     NFC_TAG("nfc"),
     DEEP_LINK("deeplink"),
     PREVIEW("preview"),
-    REPLAY("replay");
+    REPLAY("replay"),
+
+    /** Another Kipat phone, over phone-to-phone NFC (docs/nfc-phone-to-phone.md). Never verified. */
+    PEER_NFC("peer");
+
+    /** Someone else's identity arriving from outside the app (card, link or another phone). */
+    val isExternalTap: Boolean get() = this == NFC_TAG || this == DEEP_LINK || this == PEER_NFC
 
     companion object {
         fun fromWireId(value: String?): RevealSource =
@@ -53,7 +59,10 @@ data class RevealPayload(
      * once we know who it is (an unresolved card can't become a meaningful connection).
      */
     val canConnect: Boolean
-        get() = connectable && (source == RevealSource.NFC_TAG || source == RevealSource.DEEP_LINK)
+        get() = connectable && source.isExternalTap
+
+    /** Shown as "Unverified Kipat · Nearby Kipat": an HCE exchange proves contact, not identity. */
+    val isNearbyPeer: Boolean get() = source == RevealSource.PEER_NFC
 
     companion object {
         // Match the NFC test-profile limits so names and organisations are never silently cut.

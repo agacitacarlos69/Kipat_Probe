@@ -76,7 +76,7 @@ object KipatRepository {
 
     /** Records that a Reveal happened. Does NOT create a connection. */
     fun recordTap(payload: RevealPayload) {
-        if (payload.source != RevealSource.NFC_TAG && payload.source != RevealSource.DEEP_LINK) return
+        if (!payload.source.isExternalTap) return
         // Tapping your own card (e.g. testing it) is not someone you met.
         if (payload.cardId != null && payload.cardId == _identity.value.cardId) return
         val tap = RecentTap(
@@ -102,7 +102,11 @@ object KipatRepository {
             subtitle = payload.subtitle.orEmpty(),
             organization = payload.organization.orEmpty(),
             authenticity = payload.authenticity,
-            source = if (payload.source == RevealSource.NFC_TAG) ConnectionSource.NFC_CARD else ConnectionSource.LINK,
+            source = when (payload.source) {
+                RevealSource.NFC_TAG -> ConnectionSource.NFC_CARD
+                RevealSource.PEER_NFC -> ConnectionSource.PHONE_TAP
+                else -> ConnectionSource.LINK
+            },
             connectedAtMillis = now,
             revealTemplate = payload.template,
             revealTheme = payload.theme,

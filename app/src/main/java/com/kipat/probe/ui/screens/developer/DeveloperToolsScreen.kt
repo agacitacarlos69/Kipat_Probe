@@ -42,6 +42,9 @@ import com.kipat.probe.nfc.KipatTagUri
 import com.kipat.probe.nfc.NfcAvailability
 import com.kipat.probe.nfc.NfcWriteController
 import com.kipat.probe.nfc.TagWriteState
+import com.kipat.probe.nfc.peer.KipatApduProtocol
+import com.kipat.probe.nfc.peer.KipatPeerSessions
+import com.kipat.probe.nfc.peer.PeerSessionStore
 import com.kipat.probe.nfc.label
 import com.kipat.probe.ui.components.ActionRow
 import com.kipat.probe.ui.components.KipatDivider
@@ -166,6 +169,8 @@ fun DeveloperToolsScreen(writer: NfcWriteController, onBack: () -> Unit, onNfcPr
                 NfcAvailability.UNSUPPORTED -> "Unavailable"
             }, chevron = nfc != NfcAvailability.UNSUPPORTED, onClick = if (nfc != NfcAvailability.UNSUPPORTED) ({ openNfcSettings(context) }) else null)
 
+            PhoneToPhoneDiagnostics(context, mono)
+
             SectionHeading("Test the Reveal")
             ActionRow("Unknown card", supporting = "kipatprobe://tap/TEST123", onClick = { openDeepLink(context, "kipatprobe://tap/TEST123") })
             KipatDivider()
@@ -193,6 +198,46 @@ fun DeveloperToolsScreen(writer: NfcWriteController, onBack: () -> Unit, onNfcPr
                 SelectionContainer { Text(log, style = mono, color = Kipat.colors.textSecondary, modifier = Modifier.padding(horizontal = KipatSpacing.gutter)) }
             }
         }
+    }
+}
+
+/** Developer details for phone-to-phone NFC: capabilities, protocol constants and the last exchange. */
+@Composable
+private fun PhoneToPhoneDiagnostics(context: Context, mono: androidx.compose.ui.text.TextStyle) {
+    val caps = remember { KipatPeerSessions.capabilities(context) }
+    val presenter by KipatPeerSessions.presenter.diagnostics.collectAsStateWithLifecycle()
+    val receiver by KipatPeerSessions.receiverDiagnostics.collectAsStateWithLifecycle()
+    // NFC hardware and on/off are in the NFC section above.
+    SectionHeading("Phone-to-phone NFC")
+    ActionRow("Present Kipat (HCE)", value = if (caps.canPresent) "Supported" else "Not supported on this device")
+    KipatDivider()
+    ActionRow("Receive Kipat (reader mode)", value = if (caps.canReceive) "Supported" else "Not supported on this device")
+    KipatDivider()
+    ActionRow("Protocol", value = "Kipat NFC v${KipatApduProtocol.PROTOCOL_VERSION}")
+    Text(
+        "AID ${KipatApduProtocol.AID_HEX}, max profile ${KipatApduProtocol.MAX_PROFILE_BYTES} B, chunk ≤ ${KipatApduProtocol.MAX_CHUNK} B, present window ${PeerSessionStore.PRESENT_WINDOW_MS / 1000} s",
+        style = mono,
+        color = Kipat.colors.textSecondary,
+        modifier = Modifier.padding(horizontal = KipatSpacing.gutter, vertical = KipatSpacing.s4),
+    )
+    listOfNotNull(receiver, presenter).forEach { d ->
+        Text(
+            listOf(
+                "Transport: Phone-to-phone NFC",
+                "Role: ${d.role}",
+                "Protocol: Kipat NFC v${d.protocolVersion}",
+                "Peer: ${d.peerName ?: "none (one way)"}",
+                "Downloaded: ${d.downloadedBytes} bytes",
+                "Uploaded: ${d.uploadedBytes} bytes",
+                "Integrity: ${d.integrity}",
+                "Duration: ${d.durationMs?.let { "$it ms (measured)" } ?: "n/a"}",
+                "Session: ${d.session}",
+                "Result: ${d.result}",
+            ).joinToString("\n"),
+            style = mono,
+            color = Kipat.colors.textSecondary,
+            modifier = Modifier.padding(horizontal = KipatSpacing.gutter, vertical = KipatSpacing.s8),
+        )
     }
 }
 

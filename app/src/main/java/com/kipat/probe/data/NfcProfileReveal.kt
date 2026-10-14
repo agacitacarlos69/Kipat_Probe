@@ -26,7 +26,11 @@ object NfcProfileReveal {
         is NfcProfileParse.Invalid -> notice(source, "Kipat profile detected but invalid", "The profile on this card couldn't be read")
     }
 
-    fun NfcProfilePayload.toRevealPayload(source: RevealSource): RevealPayload {
+    /**
+     * [testProfile]: true for a profile read off a card in test mode; false for a profile from
+     * another Kipat phone, which is shown as a nearby (still unverified) Kipat instead.
+     */
+    fun NfcProfilePayload.toRevealPayload(source: RevealSource, testProfile: Boolean = true): RevealPayload {
         // A headline leads; the role becomes a third line under it, or the only line if there's no headline.
         val subtitle = headline ?: role
         val extraRole = role.takeIf { headline != null }
@@ -49,7 +53,7 @@ object NfcProfileReveal {
             secondaryCta = RevealPayload.defaultSecondaryCta(source),
             isOrganization = type == NfcProfileType.ORGANIZATION,
             role = extraRole,
-            testProfile = true,
+            testProfile = testProfile,
         )
     }
 
