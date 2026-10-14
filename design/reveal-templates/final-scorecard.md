@@ -70,3 +70,20 @@ that previews before applying, and timings that settle faster than the previous 
 - Spatial Card's grey edge in dark mode (invisible) → faint lit edge.
 - The retired v1/v2 catalog: Particle Bloom, Soft Glow, Liquid Logo, Pixel Build, Constellation,
   and the Signature drip/trace (their IDs still resolve, to the default).
+
+## Device score (real hardware)
+
+Kept separate from the design score above, which is never overwritten. Filled only from a
+physical phone using `docs/device-validation/_template/checklist.md` (1–5; Distraction 5 = none).
+
+| Template | Device | Professionalism | Clarity | Smoothness | Speed | Distinctiveness | NFC relevance | Distraction | Readability | Trust | Overall |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Contact Ripple | — | NOT TESTED | | | | | | | | | |
+| Precision Orbit | — | NOT TESTED | | | | | | | | | |
+| Line Assembly | — | NOT TESTED | | | | | | | | | |
+| Aperture | — | NOT TESTED | | | | | | | | | |
+| Spatial Card | — | NOT TESTED | | | | | | | | | |
+| Minimal Fade | — | NOT TESTED | | | | | | | | | |
+
+No physical device was available in the environment where this table was added (cloud container,
+no USB, `adb devices` empty). The default pick stays a design decision until a device score exists.

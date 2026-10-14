@@ -135,6 +135,11 @@ The spec's "0–100 ms activity launch" target is **not** claimed. The earlier O
 `first_reveal_visual`, `identity_readable` (name and role fully shown), `reveal_complete`. Profile → Developer tools lists this session's
 measurements. Use Perfetto on real devices for authoritative numbers.
 
+## Real-device validation
+
+Not yet done on hardware. The kit, procedure and off-device preflight findings are in
+`docs/device-validation/` (`tools/device-validation/kipat-device-validate.sh`).
+
 ## Smoke tests
 
 - JVM: `AppSmokeTest` (Robolectric) — manifest routing, cold deep-link launch, dynamic content,
