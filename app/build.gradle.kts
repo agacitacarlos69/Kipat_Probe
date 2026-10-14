@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -19,11 +21,32 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // Release signing comes from a gitignored keystore.properties at the repo root, or from
+    // KIPAT_KEYSTORE_* env vars in CI. Without either, assembleRelease produces an unsigned APK.
+    val keystoreProps = Properties().apply {
+        rootProject.file("keystore.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+    }
+    fun signingValue(prop: String, env: String): String? =
+        keystoreProps.getProperty(prop) ?: providers.environmentVariable(env).orNull
+    val releaseStoreFile = signingValue("storeFile", "KIPAT_KEYSTORE_FILE")
+
+    signingConfigs {
+        if (releaseStoreFile != null) {
+            create("release") {
+                storeFile = rootProject.file(releaseStoreFile)
+                storePassword = signingValue("storePassword", "KIPAT_KEYSTORE_PASSWORD")
+                keyAlias = signingValue("keyAlias", "KIPAT_KEY_ALIAS")
+                keyPassword = signingValue("keyPassword", "KIPAT_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             optimization {
                 enable = false
             }
+            signingConfigs.findByName("release")?.let { signingConfig = it }
         }
     }
     compileOptions {

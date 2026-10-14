@@ -11,3 +11,9 @@ captures/
 *.mov
 *.webm
 .higgsfield/
+
+# Release signing secrets
+keystore.properties
+*.jks
+*.keystore
+dist/

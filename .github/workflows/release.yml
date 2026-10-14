@@ -1,0 +1,59 @@
+# Builds a signed release APK and attaches it to a GitHub Release.
+# Trigger: push a tag like v0.2.0 (or run manually from the Actions tab).
+#
+# Required repository secrets:
+#   KIPAT_KEYSTORE_BASE64   base64 of kipat-release.jks
+#   KIPAT_KEYSTORE_PASSWORD
+#   KIPAT_KEY_ALIAS
+#   KIPAT_KEY_PASSWORD
+name: Release APK
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Restore keystore
+        env:
+          KIPAT_KEYSTORE_BASE64: ${{ secrets.KIPAT_KEYSTORE_BASE64 }}
+        run: echo "$KIPAT_KEYSTORE_BASE64" | base64 -d > kipat-release.jks
+
+      - name: Build signed APK
+        env:
+          KIPAT_KEYSTORE_FILE: kipat-release.jks
+          KIPAT_KEYSTORE_PASSWORD: ${{ secrets.KIPAT_KEYSTORE_PASSWORD }}
+          KIPAT_KEY_ALIAS: ${{ secrets.KIPAT_KEY_ALIAS }}
+          KIPAT_KEY_PASSWORD: ${{ secrets.KIPAT_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease --no-configuration-cache
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk "dist/KipatProbe-${GITHUB_REF_NAME}.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KipatProbe-apk
+          path: dist/*.apk
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.apk
+          generate_release_notes: true

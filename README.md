@@ -46,6 +46,28 @@ Optional: `-Pkipat.screenshots=true` writes smoke-test PNGs to
 `app/build/outputs/kipat-screenshots/`. If Maven Central rate-limits Robolectric's
 `android-all` download, pass `-Probolectric.dependency.repo.url=<mirror>`.
 
+## Download / release
+
+Installable APKs are attached to [GitHub Releases](https://github.com/agacitacarlos69/Kipat_Probe/releases).
+On the phone: download the `.apk`, open it and allow "Install unknown apps" for the browser.
+
+Signed release build locally:
+
+```bash
+./gradlew :app:assembleRelease      # APK in app/build/outputs/apk/release/
+```
+
+Signing reads a gitignored `keystore.properties` at the repo root
+(`storeFile`, `storePassword`, `keyAlias`, `keyPassword`), or the `KIPAT_KEYSTORE_FILE`,
+`KIPAT_KEYSTORE_PASSWORD`, `KIPAT_KEY_ALIAS`, `KIPAT_KEY_PASSWORD` env vars. Without either,
+the release APK is unsigned and won't install.
+
+To publish: push a `v*` tag (e.g. `git tag v0.2.0 && git push origin v0.2.0`).
+[`.github/workflows/release.yml`](.github/workflows/release.yml) builds the signed APK and
+creates the Release. It needs repo secrets `KIPAT_KEYSTORE_BASE64` (base64 of the `.jks`),
+`KIPAT_KEYSTORE_PASSWORD`, `KIPAT_KEY_ALIAS` and `KIPAT_KEY_PASSWORD`. Every release must be
+signed with the same keystore, or phones will refuse to update over the installed app.
+
 ## Trigger the Reveal without a tag
 
 ```bash
