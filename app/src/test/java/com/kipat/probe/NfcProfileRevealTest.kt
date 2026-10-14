@@ -168,6 +168,21 @@ class NfcProfileRevealTest {
     }
 
     @Test
+    fun peerExchangeRevealIsNearbyAndUnverified() {
+        val peer = NfcProfilePayload.SAMPLE.toRevealPayload(RevealSource.PEER_NFC, testProfile = false)
+        compose.mainClock.autoAdvance = false
+        ActivityScenario.launch<TapExperienceActivity>(com.kipat.probe.reveal.RevealLauncher.intent(context, peer)).use {
+            compose.mainClock.advanceTimeBy(3_000)
+            compose.onNodeWithText("Vash Puno").assertIsDisplayed()
+            compose.onNodeWithContentDescription("Unverified Kipat", substring = true).assertIsDisplayed()
+            compose.onNodeWithContentDescription("Nearby Kipat", substring = true).assertIsDisplayed()
+            assertEquals(0, compose.onAllNodesWithContentDescription("Verified card", substring = true).fetchSemanticsNodes().size)
+            compose.onNodeWithText("Connect").assertIsDisplayed()
+            screenshot("nfc-peer-reveal")
+        }
+    }
+
+    @Test
     fun malformedProfileTapExplainsItselfWithoutCrashing() {
         val records = listOf(Ndef.mime(NfcProfileFormat.MIME_TYPE, "{\"v\":1,\"name\":".toByteArray()))
         compose.mainClock.autoAdvance = false
