@@ -23,10 +23,12 @@ migrated, not discarded.
 | Share screen (QR, copy link, system share, card state) | Working; links point to kipat.app, which has **no web profile yet** |
 | Save contact | Working — one tap into Android Contacts (ACTION_INSERT), no .vcf |
 | Prototype NTAG writer | Profile → Developer tools; **not yet re-tested on hardware** after migration |
-| Connections, taps, profile publishing | **Local demo data, in memory** — resets when the process dies |
+| Connections, taps | **Local demo data, in memory**. Resets when the process dies. |
+| Profile, Reveal style, linked cards | Persisted on the phone (app-private JSON, atomic writes); one canonical identity with a revision |
 | Authenticity / verification | **Not implemented.** Sample data shows "Verified · demo"; tag-supplied names show "Unverified" |
 | Self-contained NFC test profile cards | Implemented (Developer tools → NFC full profile test); **not yet tested on hardware** |
 | Kipat Tap: phone-to-phone NFC from any app | **Implemented and simulated; physical validation required.** Touch two unlocked phones, Kipat not open: a Type 4 NDEF bootstrap launches Kipat on the reading phone, which then exchanges profiles with the HCE phone; both are meant to show a Reveal; never auto-connects. One-time consent; setting under Profile ([`docs/nfc-phone-to-phone.md`](docs/nfc-phone-to-phone.md), [feasibility](docs/nfc/ambient-peer-feasibility.md)). The manual Present/Receive mode is under Developer tools |
+| Linked Kipat cards (one identity) | **Implemented, local prototype parity; physical validation required.** Profile → Kipat cards links an NFC card that stores only `https://kipat.app/c/kc_…`. Each tap resolves the owner identity's current Reveal, accent and profile, so edits apply with no rewrite. Cards can be disabled or removed. Without a backend, a linked card opens only on the phone that linked it ([`docs/nfc-card-identity-sync.md`](docs/nfc-card-identity-sync.md)) |
 | Kipat Plus, billing, backend, NTAG 424 | Not implemented (placeholders only) |
 
 ## Build
@@ -80,11 +82,20 @@ adb logcat -s KipatReveal                                                       
 
 Profile → Developer tools → *Test the Reveal* has the same triggers as buttons. See [`docs/reveal.md`](docs/reveal.md).
 
-## Prototype NFC tag writing
+## Kipat cards
+
+Profile → **Kipat cards** → *Add Kipat card*, then hold a blank NTAG 213/215/216 to the phone.
+Kipat writes only `https://kipat.app/c/kc_<16 random chars>` plus an Android Application Record
+(69 bytes), reads it back, and links it to your identity. Changing your Reveal style or profile
+later changes what the same card shows. There is no rewrite. LOCAL PROTOTYPE PARITY: it is not
+synced to other phones until a backend exists. See
+[`docs/nfc-card-identity-sync.md`](docs/nfc-card-identity-sync.md).
+
+## Prototype NFC tag writing (legacy)
 
 Profile → **Developer tools** → *Write to tag*, then hold a blank NTAG 213/215/216 to the
-phone. It writes `https://kipat.app/c/<cardId>[?n=<name>&t=<template>]` plus an Android
-Application Record. Tapping that tag on a phone with Kipat installed opens the Reveal.
+phone. It writes `https://kipat.app/c/<profileId>[?n=<name>]` plus an Android
+Application Record. It never writes the Reveal template. Tapping that tag on a phone with Kipat installed opens the Reveal.
 Foreground dispatch is only active while a write is armed on the Developer tools screen. Details: [`docs/nfc.md`](docs/nfc.md).
 
 ## Architecture
@@ -100,6 +111,7 @@ app/src/main/java/com/kipat/probe/
   nfc/                       physical cards: URI parser, tag writer, write controller
   nfc/profile/               shared public-profile JSON + NDEF codec (cards and phone-to-phone)
   nfc/peer/                  phone-to-phone: HCE service, APDU protocol/processor, IsoDep reader
+  cards/                     linked cards: opaque ids, registry, resolver, link flow
   model/, data/              domain models, in-memory repository, resolver
 ```
 

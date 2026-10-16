@@ -184,9 +184,12 @@ B: COMPLETE  (A's window closes)
   profile is shared."). After that it's a setting (Profile → Kipat Tap), never a per-tap choice.
 - **Locked phones never answer** (`requireDeviceUnlock`). Android itself asks to unlock and tap
   again; with Secure NFC on, nothing works from the lock screen.
-- **Snapshot:** the served profile is `filesDir/kipat_tap_profile.json`, built from
-  `Identity.publishedFields()` and replaced atomically when the profile changes. It is parsed with
-  the same validator as received profiles. No backend, no network.
+- **Snapshot:** the served profile is the canonical identity's `PublicKipatProfileSnapshot`
+  (`KipatIdentityStore.publicSnapshot`), built from `Identity.publishedFields()`. It is rebuilt
+  once per profile revision, so an edit is served on the next tap. The identity is persisted
+  atomically to `filesDir/kipat_identity.json`, so a cold HCE process serves the same profile.
+  Linked physical cards use the same snapshot ([nfc-card-identity-sync.md](nfc-card-identity-sync.md)).
+  No backend, no network.
 - **Untrusted readers:** a link gets 640 commands at most, and a phone opens at most 20
   encounters per minute. Reads and uploads are bounded (4 KB) and only the public profile is
   served. Any NFC phone can read the bootstrap: it reveals only that Kipat is installed (and its

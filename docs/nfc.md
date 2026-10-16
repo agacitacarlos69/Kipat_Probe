@@ -1,5 +1,10 @@
 # NFC
 
+**One identity:** a linked physical card, Kipat Tap and the preview all show the same canonical
+Kipat identity. A linked card stores only `https://kipat.app/c/kc_…` and is resolved at tap time,
+so Reveal and profile edits apply with no rewrite. This is local prototype parity, not global sync:
+see [nfc-card-identity-sync.md](nfc-card-identity-sync.md).
+
 Two architectures: **physical cards** (NDEF, this document and
 [nfc-self-contained-profile.md](nfc-self-contained-profile.md)) and **phone to phone** (Host Card
 Emulation + a tiny Type 4 NDEF bootstrap + APDUs: **Kipat Tap**, [nfc-phone-to-phone.md](nfc-phone-to-phone.md),
@@ -21,7 +26,8 @@ Kipat Card (NDEF: URI record + AAR)
   → TapExperienceActivity (own task, above the current app)
   → NfcIntents.uriFrom(intent)  (intent data, else first NDEF URI record; API 33+ typed getters)
   → NfcIntentParser.parse       (pure Kotlin)
-  → RevealResolver.resolve      (local data only — never waits on network)
+  → kc_ id?  KipatCardResolver.resolve → owner identity snapshot → LinkedCardReveal   (linked cards)
+    else     RevealResolver.resolve (local data only; legacy ids, own profile id, hints)
   → RevealScreen
 ```
 
@@ -29,7 +35,8 @@ Accepted URIs:
 
 | URI | Channel | Notes |
 |---|---|---|
-| `https://kipat.app/c/{id}` (also `/tap/`, `/p/`, `www.`) | NFC_TAG | Optional hints `n` (name), `s`, `o`, `t` (template), `th` (theme) — always shown as **Unverified** |
+| `https://kipat.app/c/kc_{16 base32}` | NFC_TAG | **Linked card**: resolved to the owner identity's current Reveal; status checked first; always **Unverified** |
+| `https://kipat.app/c/{id}` (also `/tap/`, `/p/`, `www.`) | NFC_TAG | Legacy ids. Optional hints `n` (name), `s`, `o`, `t` (template), `th` (theme): read for old cards, always shown as **Unverified**. New cards never carry `t`. |
 | `https://probe.kipat.com…` | LEGACY_PROBE_TAG | Tags written by the old probe still open the Reveal with a "re-write this tag" message |
 | `kipatprobe://tap/{id}` | DEBUG_DEEP_LINK | Same hints plus `a=` authenticity override for QA; overrides are labelled demo |
 
@@ -44,7 +51,13 @@ Always shown as Unverified + "Test profile". See [nfc-self-contained-profile.md]
 `autoVerify`, because no `assetlinks.json` is deployed. Browser links to kipat.app therefore open
 the browser. NFC dispatch works regardless.
 
-## Writing: prototype cards (Profile → Developer tools)
+## Writing: linked cards (Profile → Kipat cards → Add Kipat card)
+
+Reader mode → ownership check (never takes over another Kipat's `kc_` card) → writable → exact
+capacity → confirm replacing data → write URI + AAR (69 bytes) → reconnect and read back → link.
+Details: [nfc-card-identity-sync.md](nfc-card-identity-sync.md).
+
+## Writing: legacy prototype cards (Profile → Developer tools)
 
 Migrated from the original `MainActivity.java`:
 
@@ -61,8 +74,8 @@ Changed:
 - Typed results: read-only, insufficient capacity, tag lost, unsupported, format failed, I/O,
   NFC off, no NFC. Errors keep the writer armed for a retry (as before); success disarms.
 - Same tag again within 2 s is ignored (duplicate scan).
-- Payload changed from `https://probe.kipat.com` to `https://kipat.app/c/{cardId}` (+ optional
-  short name/template hints, sized for NTAG213's 144 bytes).
+- Payload changed from `https://probe.kipat.com` to `https://kipat.app/c/{cardId}` (+ an optional
+  short name hint). It no longer writes a template hint: presentation belongs to the identity.
 
 ## Writing: full test profiles (Developer tools → NFC full profile test)
 
@@ -71,6 +84,9 @@ before replacing existing data; write → close → reconnect → read back → 
 "PROFILE WRITE VERIFIED". Details in [nfc-self-contained-profile.md](nfc-self-contained-profile.md).
 
 ## Needs a physical device (not done in this environment)
+
+- Linked cards: link, then change Reveal / accent / profile and tap the same card
+  ([checklist](device-validation/_template/linked-card-checklist.md))
 
 - Writing and reading a full test profile on NTAG213 (expect PROFILE TOO LARGE for the sample),
   NTAG215 and NTAG216; tapping it from the launcher, over another app, cold and warm
@@ -83,5 +99,5 @@ before replacing existing data; write → close → reconnect → read back → 
 
 ## Not implemented
 
-NTAG 424 DNA SUN/CMAC verification, backend card lookup, cryptographic peer identity for
-phone-to-phone exchanges.
+NTAG 424 DNA SUN/CMAC verification, the backend card resolver (so other phones can open a linked
+card), the web profile, and cryptographic peer identity for phone-to-phone exchanges.

@@ -3,6 +3,11 @@
 **Development and testing only.** This puts a complete, public Kipat profile directly on an NFC
 card so a physical tap can open the Reveal with no backend. It is not how production cards work.
 
+**It is an offline copy and goes out of date.** Editing your profile or Reveal never changes a
+self-contained card. Developer tools labels a stale card **Out of date** ("Tap card to update"),
+and **Convert to linked Kipat card** turns it into a linked card that always follows your identity
+([nfc-card-identity-sync.md](nfc-card-identity-sync.md)).
+
 > Test profiles stored directly on an NFC card can be read and copied by other NFC-capable
 > devices. Do not store sensitive personal information.
 

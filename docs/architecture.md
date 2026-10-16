@@ -10,7 +10,8 @@ the only shared dependency).
 | `model/` | Identity, profile fields/templates, connections, card, taps, authenticity + its presentation, profile validation | Yes |
 | `reveal/RevealTemplate.kt`, `RevealEngine.kt`, `RevealPayload.kt`, `RevealStyleDraft.kt` | Six-template family and its `RevealChoreography`, `RevealTimeline`, Kipat motion curves, frame math, payload + Intent codec, picker draft | Yes |
 | `nfc/NfcIntentParser.kt`, `NfcStatus.kt` | Kipat URI parsing, tag URI builder, write states | Yes |
-| `data/` | `SampleData`, `KipatRepository` (StateFlows), `RevealResolver` (tap → payload) | Yes |
+| `data/` | `SampleData`, `KipatRepository` (StateFlows, canonical identity + `profileRevision`), `KipatIdentityStore` (atomic persistence, public snapshot), `PublicKipatProfileSnapshot`, `RevealResolver` (legacy tap → payload) | Mostly (the store needs a Context) |
+| `cards/` | Linked cards: `LinkedKipatCard`, `KipatCardId`, `KipatCardResolver` + `LocalPrototypeCardResolver`, `LinkedCardReveal`, `CardLinkPlan`; `KipatCards` registry and `CardLinkSession` (reader mode) | Model and resolver yes; registry and session no |
 | `nfc/NfcTagWriter.kt`, `NfcWriteController.kt`, `NfcIntents.kt` | Android NFC I/O and foreground dispatch | No |
 | `reveal/RevealScreen.kt` (`RevealScreen` clock + stateless `RevealStage`), `effects/`, `RevealTemplateGlyph.kt`, `RevealRuntime.kt` | Compose renderer, the six Canvas primitives, picker thumbnails, launcher, quality policy, haptics, trace | No |
 | `ui/theme`, `ui/components`, `ui/screens`, `navigation/` | Design system and screens | No |
@@ -30,16 +31,36 @@ The Android-free layers are what the JVM unit tests cover.
 ## Navigation
 
 Three tabs via Navigation Compose string routes (`home`, `connections`, `profile`) plus pushed
-routes `share`, `person/{connectionId}`, `profile/edit`, `profile/reveal-style` and
-`profile/developer` (see `design/research/navigation-decision.md`). Tab switches use `popUpTo(start){saveState}` + `restoreState` +
+routes `share`, `person/{connectionId}`, `profile/edit`, `profile/reveal-style`, `profile/cards`,
+`profile/cards/add`, `profile/card/{cardId}` and `profile/developer` (see `design/research/navigation-decision.md`). Tab switches use `popUpTo(start){saveState}` + `restoreState` +
 `launchSingleTop`, so each tab keeps its scroll/search state; re-tapping the active tab pops to its
 root; Back from any tab returns to Home, then exits. The navigation bar shows on tab roots only.
 Edit profile asks before discarding unsaved changes.
 
+## One identity, many transports
+
+```
+KipatRepository.identity (+ profileRevision) ──persist──► kipat_identity.json (KipatIdentityStore)
+        │
+        ▼
+PublicKipatProfileSnapshot ──► HCE Kipat Tap (KipatTapStore.snapshot)
+        │                 ──► linked card: kc_ id → KipatCardResolver → owner snapshot
+        │                 ──► preview, QR, link
+        ▼
+NfcProfileReveal.toRevealPayload → RevealPayload → RevealScreen
+```
+
+Presentation (Reveal template, accent) belongs to the identity, never to a card or a phone. Every
+edit goes through `KipatRepository.publishIdentity`. It persists the change, then raises the
+revision by one, so the next tap of the phone or of any linked card serves it. This is local parity
+on one phone; a backend resolver is the documented next step
+([nfc-card-identity-sync.md](nfc-card-identity-sync.md)).
+
 ## State
 
-`KipatRepository` exposes `StateFlow`s (identity, card, entitlement, connections, recent taps,
-Reveal timings). Screens collect with `collectAsStateWithLifecycle`. Only Edit profile uses a
+`KipatRepository` exposes `StateFlow`s (identity, profile revision, card, entitlement, connections,
+recent taps, Reveal timings). The identity and linked cards are persisted to app-private JSON files.
+Connections and taps are still in memory. Screens collect with `collectAsStateWithLifecycle`. Only Edit profile uses a
 `ViewModel` (the editable draft must survive configuration changes). Everything is in memory —
 persistence (Room/DataStore) and a backend are the planned replacements behind the same object.
 
