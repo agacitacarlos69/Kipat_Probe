@@ -11,8 +11,10 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
+import com.kipat.probe.data.KipatIdentityStore
 import com.kipat.probe.data.KipatRepository
 import com.kipat.probe.data.SampleData
+import com.kipat.probe.model.ProfileField
 import com.kipat.probe.nfc.peer.KipatApduProcessor
 import com.kipat.probe.nfc.peer.KipatApduProtocol
 import com.kipat.probe.nfc.peer.KipatHceRouter
@@ -61,29 +63,39 @@ class KipatTapAndroidTest {
     @Before
     fun reset() {
         context.getSharedPreferences("kipat_tap", 0).edit().clear().commit()
-        File(context.filesDir, "kipat_tap_profile.json").delete()
-        KipatTapStore.clearCache()
+        File(context.filesDir, "kipat_identity.json").delete()
+        KipatIdentityStore.resetForTest()
+        KipatRepository.restoreIdentity(SampleData.identity, 0)
         KipatPeerSessions.attach(context)
     }
 
     @After
-    fun tearDown() = KipatPeerSessions.presenter.cancel()
+    fun tearDown() {
+        KipatPeerSessions.presenter.cancel()
+        KipatIdentityStore.resetForTest()
+        KipatRepository.restoreIdentity(SampleData.identity, 0)
+    }
+
+    /** What MainActivity does on launch: the canonical identity becomes the published one. */
+    private fun publishOwn() = KipatIdentityStore.init(context, persistCurrent = true)
 
     // ------------------------------------------------------------------ snapshot + eligibility
 
     @Test
     fun publicSnapshotSurvivesAColdProcessAndIsPublicOnly() {
-        KipatTapStore.publish(context, own)
-        KipatTapStore.clearCache() // as if the HCE service started in a fresh process
+        publishOwn()
+        // As if the HCE service started in a fresh process: nothing in memory but the file.
+        KipatIdentityStore.resetForTest()
+        KipatRepository.restoreIdentity(SampleData.identity.copy(id = "other", fields = emptyMap()), 0)
         val snap = KipatTapStore.snapshot(context)!!
         assertEquals(own, snap.profile)
         assertArrayEquals(KipatApduProtocol.sha256(snap.bytes), snap.sha256)
-        val json = File(context.filesDir, "kipat_tap_profile.json").readText()
-        assertFalse("unpublished role and company never stored", json.contains("Founder") || json.contains("\"Kipat\""))
-        // Editing the profile refreshes the snapshot.
-        KipatTapStore.publish(context, own.copy(headline = "BS Information Technology"))
-        KipatTapStore.clearCache()
+        assertFalse("unpublished role and company never served", String(snap.bytes).contains("Founder") || String(snap.bytes).contains("\"Kipat\""))
+        // Editing the profile refreshes the served snapshot at once, with no separate publish step.
+        val edited = SampleData.identity.copy(fields = SampleData.identity.fields + (ProfileField.PROGRAM to "BS Information Technology"))
+        KipatRepository.publishIdentity(edited)
         assertEquals("BS Information Technology", KipatTapStore.snapshot(context)!!.profile.headline)
+        assertEquals(snap.revision + 1, KipatTapStore.snapshot(context)!!.revision)
     }
 
     @Test
@@ -91,7 +103,7 @@ class KipatTapAndroidTest {
         assertNull("off by default until the person enables it", KipatTapStore.eligibleProfile(context))
         KipatTapStore.setEnabled(context, true)
         assertNull("enabled but nothing published", KipatTapStore.eligibleProfile(context))
-        KipatTapStore.publish(context, own)
+        publishOwn()
         assertNotNull(KipatTapStore.eligibleProfile(context))
         KipatTapStore.setEnabled(context, false)
         assertNull(KipatTapStore.eligibleProfile(context))
@@ -103,7 +115,7 @@ class KipatTapAndroidTest {
         val store = PeerSessionStore(clock = { System.nanoTime() / 1_000_000 }, ambientProfile = { KipatTapStore.eligibleProfile(context) })
         val router = KipatHceRouter(KipatType4Tag(store, context.packageName), KipatApduProcessor(store))
         val selectNdef = KipatApduProtocol.hex("00A4040007D276000085010100")
-        KipatTapStore.publish(context, own)
+        publishOwn()
         assertEquals(Sw.NOT_FOUND.code, KipatApduProtocol.parseResponse(router.process(selectNdef))!!.sw)
         KipatTapStore.setEnabled(context, true)
         assertEquals(Sw.OK.code, KipatApduProtocol.parseResponse(router.process(selectNdef))!!.sw)
@@ -146,7 +158,7 @@ class KipatTapAndroidTest {
 
     @Test
     fun bootstrapWithoutAUsableLinkFallsBackWithoutCrashing() {
-        KipatTapStore.publish(context, own)
+        publishOwn()
         KipatTapStore.setEnabled(context, true)
         compose.mainClock.autoAdvance = false
         ActivityScenario.launch<TapExperienceActivity>(bootstrapIntent()).use {
@@ -160,7 +172,7 @@ class KipatTapAndroidTest {
 
     @Test
     fun responderOpensExactlyOneNearbyRevealAndRecordsADiscoveryOnly() {
-        KipatTapStore.publish(context, own)
+        publishOwn()
         val peer = NfcProfilePayload(id = "KPT-AMB-1", displayName = "Ana Cruz", headline = "BS Nursing")
         KipatTapLauncher.deliverAsResponder(context, peer, ByteArray(16), ByteArray(16) { 1 }, 120)
         val started = app.nextStartedActivity

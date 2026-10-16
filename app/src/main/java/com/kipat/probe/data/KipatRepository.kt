@@ -52,8 +52,35 @@ object KipatRepository {
 
     private var idCounter = 0
 
+    private val _profileRevision = MutableStateFlow(0L)
+    /** Increases on every published identity change (fields, Reveal template, accent). */
+    val profileRevision: StateFlow<Long> = _profileRevision.asStateFlow()
+
+    /**
+     * Persists the identity and its revision (KipatIdentityStore) BEFORE the change is visible, so
+     * no reader — UI, HCE service, card resolver — can see a new Reveal with an old profile.
+     */
+    @Volatile var identityPersistence: ((Identity, Long) -> Unit)? = null
+
+    /** The one place the canonical identity changes: profile edits and Reveal style both land here. */
+    @Synchronized
     fun publishIdentity(identity: Identity) {
+        if (identity == _identity.value) return
+        val revision = _profileRevision.value + 1
+        identityPersistence?.invoke(identity, revision)
         _identity.value = identity
+        _profileRevision.value = revision
+    }
+
+    /** Identity and revision read together (never a new identity with an old revision). */
+    @Synchronized
+    fun published(): Pair<Identity, Long> = _identity.value to _profileRevision.value
+
+    /** Loads a persisted identity at process start (KipatIdentityStore.init). */
+    @Synchronized
+    fun restoreIdentity(identity: Identity, revision: Long) {
+        _identity.value = identity
+        _profileRevision.value = revision
     }
 
     fun connection(id: String): Connection? = _connections.value.firstOrNull { it.id == id }

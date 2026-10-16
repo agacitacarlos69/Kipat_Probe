@@ -12,14 +12,9 @@ import com.kipat.probe.nfc.NfcIntents
 import com.kipat.probe.nfc.NfcWriteController
 import com.kipat.probe.nfc.ParsedNfcIntent
 import com.kipat.probe.ui.theme.KipatTheme
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import com.kipat.probe.data.KipatRepository
-import com.kipat.probe.nfc.peer.KipatPeerProfile
+import com.kipat.probe.data.KipatIdentityStore
 import com.kipat.probe.nfc.peer.KipatPeerSessions
-import com.kipat.probe.nfc.peer.KipatTapStore
 
 /**
  * Root Kipat application shell (Compose). Also hosts the prototype tag writer, whose foreground
@@ -35,14 +30,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         writer = NfcWriteController(this, lifecycleScope)
         if (savedInstanceState == null) routeIntent(intent)
+        // One canonical identity: loaded before any UI reads it, persisted on every change, so the
+        // HCE service and linked-card taps (possibly in a fresh process) see the same profile.
+        KipatIdentityStore.init(this, persistCurrent = true)
         KipatPeerSessions.attach(this)
-        // Keep the Kipat Tap snapshot equal to the public profile, so the HCE service can serve it
-        // later from a fresh process without any UI.
-        lifecycleScope.launch {
-            KipatRepository.identity.collect { identity ->
-                withContext(Dispatchers.IO) { KipatTapStore.publish(this@MainActivity, KipatPeerProfile.fromIdentity(identity)) }
-            }
-        }
 
         setContent {
             KipatTheme {

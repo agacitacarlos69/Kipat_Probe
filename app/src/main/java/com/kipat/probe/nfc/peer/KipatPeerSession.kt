@@ -1,5 +1,6 @@
 package com.kipat.probe.nfc.peer
 
+import com.kipat.probe.data.PublicKipatProfileSnapshot
 import com.kipat.probe.nfc.peer.KipatApduProtocol.shortId
 import com.kipat.probe.nfc.peer.KipatApduProtocol.toHex
 import com.kipat.probe.nfc.profile.NfcProfilePayload
@@ -22,18 +23,6 @@ class PeerPresentSession(
     val ambient: Boolean = false,
 ) {
     val profileType: Byte get() = if (profile.type.wire == "organization") 2 else 1
-}
-
-/** The public Kipat Tap profile, serialized and hashed once when published. */
-class TapProfile(val profile: NfcProfilePayload, val bytes: ByteArray, val sha256: ByteArray) {
-    companion object {
-        /** Null when the profile is over the protocol limit: it is then never shared. */
-        fun of(profile: NfcProfilePayload): TapProfile? {
-            val bytes = KipatPeerProfile.toBytes(profile)
-            if (bytes.size > KipatApduProtocol.MAX_PROFILE_BYTES) return null
-            return TapProfile(profile, bytes, KipatApduProtocol.sha256(bytes))
-        }
-    }
 }
 
 /** Receives a validated peer profile from an ambient encounter (the responder side of Kipat Tap). */
@@ -101,7 +90,7 @@ class PeerSessionStore(
     private val clock: () -> Long,
     private val random: SecureRandom = SecureRandom(),
     private val log: PeerLog = PeerLog.NONE,
-    private val ambientProfile: () -> TapProfile? = { null },
+    private val ambientProfile: () -> PublicKipatProfileSnapshot? = { null },
 ) {
     /** Set by the HCE service: shows the Reveal for a peer received during an ambient encounter. */
     @Volatile var ambientListener: PeerDeliveryListener? = null

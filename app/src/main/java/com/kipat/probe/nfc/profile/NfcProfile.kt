@@ -113,7 +113,7 @@ object NfcProfileFormat {
         return ACCENTS[v] ?: RevealTheme.entries.firstOrNull { it.wireId == v }
     }
 
-    fun revealWire(template: RevealTemplateId): String = template.name.lowercase()
+    fun revealWire(template: RevealTemplateId): String = template.stableId
 
     /** "precision_orbit" etc., or the short wire IDs ("orbit"). Unknown → null (the caller warns). */
     fun revealOf(value: String?): RevealTemplateId? =

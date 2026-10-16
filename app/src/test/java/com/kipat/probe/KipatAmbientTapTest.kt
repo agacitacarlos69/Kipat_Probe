@@ -1,5 +1,6 @@
 package com.kipat.probe
 
+import com.kipat.probe.data.PublicKipatProfileSnapshot
 import android.nfc.NdefMessage
 import com.kipat.probe.nfc.peer.IncomingKipatExchangeStore
 import com.kipat.probe.nfc.peer.KipatApduProcessor
@@ -16,7 +17,6 @@ import com.kipat.probe.nfc.peer.PeerExchangeResult
 import com.kipat.probe.nfc.peer.PeerSessionStore
 import com.kipat.probe.nfc.peer.PresentState
 import com.kipat.probe.nfc.peer.Sw
-import com.kipat.probe.nfc.peer.TapProfile
 import com.kipat.probe.nfc.peer.TapRole
 import com.kipat.probe.nfc.peer.UploadOutcome
 import com.kipat.probe.nfc.profile.NfcProfilePayload
@@ -46,7 +46,7 @@ class KipatAmbientTapTest {
     private val phoneB = NfcProfilePayload(id = "KPT-DEMO-0103", displayName = "José Dela Cruz", headline = "BS Architecture", organization = "University of Santo Tomas")
     private var eligible = true
     private val delivered = mutableListOf<NfcProfilePayload>()
-    private val storeA = PeerSessionStore(clock = { now }, ambientProfile = { if (eligible) TapProfile.of(phoneA) else null }).also {
+    private val storeA = PeerSessionStore(clock = { now }, ambientProfile = { if (eligible) PublicKipatProfileSnapshot.of(phoneA) else null }).also {
         it.ambientListener = PeerDeliveryListener { peer, _, _, _ -> delivered += peer }
     }
     private val type4 = KipatType4Tag(storeA, pkg)
@@ -219,7 +219,7 @@ class KipatAmbientTapTest {
             now += PeerSessionStore.ENCOUNTER_WINDOW_MS + 1 // each one expires before the next
         }
         // 20 encounters inside one minute? Not possible with 20 s windows — force them closer.
-        val busy = PeerSessionStore(clock = { now }, ambientProfile = { TapProfile.of(phoneA) })
+        val busy = PeerSessionStore(clock = { now }, ambientProfile = { PublicKipatProfileSnapshot.of(phoneA) })
         var opened = 0
         repeat(30) {
             if (busy.beginEncounter() != null) opened++

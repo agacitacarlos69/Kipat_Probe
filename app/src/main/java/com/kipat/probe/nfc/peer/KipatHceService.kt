@@ -7,6 +7,7 @@ import android.nfc.cardemulation.HostApduService
 import android.os.Bundle
 import android.os.SystemClock
 import android.util.Log
+import com.kipat.probe.data.KipatIdentityStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,6 +35,7 @@ class KipatHceService : HostApduService() {
 
     override fun onCreate() {
         super.onCreate()
+        KipatIdentityStore.init(this)
         KipatPeerSessions.attach(this)
         KipatTapStore.snapshot(this) // warm the public snapshot before the first APDU
     }

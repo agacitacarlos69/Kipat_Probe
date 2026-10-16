@@ -21,9 +21,28 @@ enum class RevealTemplateId(
     SPATIAL_CARD("spatial", "Spatial Card", "Subtle physical depth"),
     MINIMAL_FADE("minimal-fade", "Minimal Fade", "Quiet and immediate");
 
+    /**
+     * Stable identifier persisted with the identity and sent in NFC/peer profiles. Never derived
+     * from [label] or the enum name, so renaming "Precision Orbit" can't change stored data.
+     */
+    val stableId: String get() = STABLE_IDS.getValue(this)
+
     companion object {
         /** Selected in design/reveal-templates/final-scorecard.md. */
         val DEFAULT = CONTACT_RIPPLE
+
+        private val STABLE_IDS: Map<RevealTemplateId, String> = mapOf(
+            CONTACT_RIPPLE to "contact_ripple",
+            PRECISION_ORBIT to "precision_orbit",
+            LINE_ASSEMBLY to "line_assembly",
+            APERTURE to "aperture",
+            SPATIAL_CARD to "spatial_card",
+            MINIMAL_FADE to "minimal_fade",
+        )
+
+        /** Exact stable-id lookup; null for unknown or removed templates (the caller falls back). */
+        fun fromStableId(value: String?): RevealTemplateId? =
+            entries.firstOrNull { it.stableId.equals(value?.trim(), ignoreCase = true) }
 
         /** Fallback when the device or the person asks for less motion or power. */
         val LOW_POWER = MINIMAL_FADE
@@ -46,7 +65,8 @@ enum class RevealTemplateId(
         private fun lookup(value: String?): RevealTemplateId? {
             val v = value?.trim().orEmpty()
             if (v.isEmpty()) return null
-            return entries.firstOrNull { it.wireId.equals(v, ignoreCase = true) || it.name.equals(v, ignoreCase = true) }
+            return fromStableId(v)
+                ?: entries.firstOrNull { it.wireId.equals(v, ignoreCase = true) || it.name.equals(v, ignoreCase = true) }
                 ?: LEGACY_ALIASES[v.lowercase()]
         }
 

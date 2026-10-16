@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.kipat.probe.data.KipatIdentityStore
 import com.kipat.probe.data.KipatRepository
 import com.kipat.probe.data.NfcProfileReveal
 import com.kipat.probe.data.RevealResolver
@@ -82,6 +83,7 @@ class TapExperienceActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT),
         )
         super.onCreate(savedInstanceState)
+        KipatIdentityStore.init(this) // a card tap may start a fresh process: same identity as the app
         KipatPeerSessions.attach(this)
         markDelivered(intent)
 

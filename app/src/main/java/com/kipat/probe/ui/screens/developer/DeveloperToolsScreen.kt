@@ -226,7 +226,7 @@ private fun PhoneToPhoneDiagnostics(context: Context, mono: androidx.compose.ui.
     SectionHeading("Kipat Tap (ambient)")
     ActionRow("Availability", value = tap.name)
     KipatDivider()
-    ActionRow("Public snapshot", value = snapshot?.let { "${it.bytes.size} bytes" } ?: "None")
+    ActionRow("Public snapshot", value = snapshot?.let { "${it.bytes.size} bytes, revision ${it.revision}" } ?: "None")
     KipatDivider()
     ActionRow("NFC dispatch alias", value = if (Build.VERSION.SDK_INT >= 37) "Protected (API 37+)" else "Legacy (API < 37)")
     if (Build.VERSION.SDK_INT >= 36) {
