@@ -14,6 +14,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.kipat.probe.cards.CardResolution
+import com.kipat.probe.cards.KipatCardId
+import com.kipat.probe.cards.KipatCardResolver
+import com.kipat.probe.cards.KipatCards
+import com.kipat.probe.cards.LinkedCardReveal
 import com.kipat.probe.data.KipatIdentityStore
 import com.kipat.probe.data.KipatRepository
 import com.kipat.probe.data.NfcProfileReveal
@@ -40,6 +45,8 @@ import com.kipat.probe.reveal.TapDebouncer
 import com.kipat.probe.model.AuthenticityState
 import com.kipat.probe.ui.theme.KipatTheme
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import com.kipat.probe.nfc.peer.KipatPeerBootstrap
 import com.kipat.probe.nfc.peer.KipatPeerSessions
 import com.kipat.probe.nfc.peer.KipatTapInitiator
@@ -74,6 +81,7 @@ class TapExperienceActivity : ComponentActivity() {
     /** Non-null while a Kipat Tap exchange is in flight: the Reveal waits for a validated profile. */
     private var pending by mutableStateOf<TapPending?>(null)
     private var initiator: KipatTapInitiator? = null
+    private val cardResolver: KipatCardResolver by lazy { KipatCards.resolver(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         trace = RevealTrace(intent?.getLongExtra(RevealLauncher.EXTRA_LAUNCH_UPTIME, -1L)?.takeIf { it > 0 })
@@ -94,12 +102,18 @@ class TapExperienceActivity : ComponentActivity() {
             // Kipat Tap initiator: nothing is shown until the other phone's profile is validated.
             if (savedInstanceState == null) startKipatTap(intent, bootstrap) else finish()
         } else {
-            payload = resolve(intent)
-            connected = KipatRepository.isConnected(payload.cardId)
-            if (savedInstanceState == null) {
-                // Only real taps/links are recorded; in-app previews and replays are not new taps.
-                if (!hasTrustedPayload(intent)) KipatRepository.recordTap(payload)
-                rememberTap(payload)
+            val linked = linkedCard(intent)
+            if (linked != null) {
+                // A linked Kipat card: card id → owner identity → its current Reveal.
+                openLinkedCard(linked.first, linked.second, record = savedInstanceState == null, restart = false)
+            } else {
+                payload = resolve(intent)
+                connected = KipatRepository.isConnected(payload.cardId)
+                if (savedInstanceState == null) {
+                    // Only real taps/links are recorded; in-app previews and replays are not new taps.
+                    if (!hasTrustedPayload(intent)) KipatRepository.recordTap(payload)
+                    rememberTap(payload)
+                }
             }
         }
 
@@ -130,6 +144,15 @@ class TapExperienceActivity : ComponentActivity() {
         peerBootstrap(intent)?.let { bootstrap ->
             // Re-read of the same phone, or a new one while a Reveal shows: the exchange decides (deduplicated).
             if (initiator?.running != true) startKipatTap(intent, bootstrap)
+            return
+        }
+        linkedCard(intent)?.let { (cardId, source) ->
+            if (debouncer.isDuplicate(cardId, source, SystemClock.elapsedRealtime())) {
+                Log.i(RevealTrace.TAG, "duplicate tap ignored for ${KipatCardId.masked(cardId)}")
+                return
+            }
+            trace = RevealTrace(intent.getLongExtra(RevealLauncher.EXTRA_LAUNCH_UPTIME, -1L).takeIf { it > 0 })
+            openLinkedCard(cardId, source, record = true, restart = true)
             return
         }
         val next = resolve(intent)
@@ -198,6 +221,44 @@ class TapExperienceActivity : ComponentActivity() {
         pending = null
         runKey++
         Log.i(PeerLog.TAG_LAUNCH, "initiator_reveal_requested exchange=${delivery.exchangeId}")
+    }
+
+    /** A `https://kipat.app/c/kc_…` card (or debug link): its id and how it arrived; null otherwise. */
+    private fun linkedCard(intent: Intent?): Pair<String, RevealSource>? {
+        if (intent == null || hasTrustedPayload(intent)) return null
+        val tap = runCatching { NfcIntentParser.parseTap(NfcIntents.recordsFrom(intent), NfcIntents.uriFrom(intent)) }.getOrNull()
+        val target = (tap as? ParsedNfcIntent.Card)?.target ?: return null
+        val id = target.cardId?.takeIf(KipatCardId::looksLinked) ?: return null
+        return id to if (NfcIntents.isNfcLaunch(intent)) RevealSource.NFC_TAG else RevealSource.DEEP_LINK
+    }
+
+    /**
+     * Resolves through [KipatCardResolver] (suspend, so a future backend resolver drops in). The
+     * local resolver never suspends, so the Reveal is set before the first frame; a slow resolver
+     * would show the same invisible pending state Kipat Tap uses, never a stale profile.
+     */
+    private fun openLinkedCard(cardId: String, source: RevealSource, record: Boolean, restart: Boolean) {
+        var shown = false
+        lifecycleScope.launch(Dispatchers.Main.immediate) {
+            val resolution = cardResolver.resolve(cardId)
+            shown = true
+            showLinkedCard(resolution, source, record, restart)
+        }
+        if (!shown) pending = TapPending.Connecting
+    }
+
+    private fun showLinkedCard(resolution: CardResolution, source: RevealSource, record: Boolean, restart: Boolean) {
+        val revision = (resolution as? CardResolution.Resolved)?.revision
+        Log.i(KipatCards.TAG, "card_resolved result=${resolution::class.simpleName} card=${KipatCardId.masked(resolution.cardId)} source=${source.wireId} revision=$revision")
+        if (record && resolution is CardResolution.Resolved) KipatCards.markSeen(resolution.cardId, System.currentTimeMillis(), source.wireId)
+        val next = LinkedCardReveal.payloadFor(resolution, source)
+        pending = null
+        payload = next
+        connected = KipatRepository.isConnected(next.cardId)
+        // Only a resolved profile is someone you met; a turned-off or unknown card is not recorded.
+        if (record && resolution is CardResolution.Resolved) KipatRepository.recordTap(next)
+        debouncer.accept(resolution.cardId, SystemClock.elapsedRealtime())
+        if (restart) runKey++
     }
 
     /** The responder's Reveal appeared: proves the background launch was allowed. */

@@ -13,6 +13,7 @@ import com.kipat.probe.nfc.NfcWriteController
 import com.kipat.probe.nfc.ParsedNfcIntent
 import com.kipat.probe.ui.theme.KipatTheme
 import kotlinx.coroutines.flow.MutableStateFlow
+import com.kipat.probe.cards.KipatCards
 import com.kipat.probe.data.KipatIdentityStore
 import com.kipat.probe.nfc.peer.KipatPeerSessions
 
@@ -33,6 +34,7 @@ class MainActivity : ComponentActivity() {
         // One canonical identity: loaded before any UI reads it, persisted on every change, so the
         // HCE service and linked-card taps (possibly in a fresh process) see the same profile.
         KipatIdentityStore.init(this, persistCurrent = true)
+        KipatCards.init(this)
         KipatPeerSessions.attach(this)
 
         setContent {

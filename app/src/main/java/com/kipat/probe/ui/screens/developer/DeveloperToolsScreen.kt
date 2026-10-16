@@ -87,7 +87,8 @@ fun DeveloperToolsScreen(writer: NfcWriteController, onBack: () -> Unit, onNfcPr
     DisposableEffect(Unit) { onDispose { writer.cancel() } }
 
     val tagUri = remember(identity, includeHints) {
-        if (includeHints) KipatTagUri.build(identity.cardId, identity.displayName, identity.revealTemplate) else KipatTagUri.build(identity.cardId)
+        // Never the Reveal template: presentation belongs to the identity, not to a card.
+        if (includeHints) KipatTagUri.build(identity.cardId, identity.displayName) else KipatTagUri.build(identity.cardId)
     }
     val probeLog by produceState<String?>(null) {
         value = withContext(Dispatchers.IO) {
@@ -132,7 +133,13 @@ fun DeveloperToolsScreen(writer: NfcWriteController, onBack: () -> Unit, onNfcPr
                 onClick = onManualPeerTest,
             )
 
-            SectionHeading("Card writer")
+            SectionHeading("Legacy card writer")
+            Text(
+                "Writes your profile id. To link a card to your Kipat, use Profile, then Kipat cards.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Kipat.colors.textSecondary,
+                modifier = Modifier.padding(horizontal = KipatSpacing.gutter, vertical = KipatSpacing.s4),
+            )
             Row(
                 Modifier
                     .fillMaxWidth()
