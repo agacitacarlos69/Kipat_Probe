@@ -34,13 +34,18 @@ object KipatRoutes {
     const val NFC_PROFILE_EDIT = "profile/developer/nfc-profile/edit"
     const val NFC_PROFILE_NEW = "profile/developer/nfc-profile/new"
     const val NFC_MANUAL_PEER = "profile/developer/nfc-manual-peer"
+    const val CARDS = "profile/cards"
+    const val CARD_ADD = "profile/cards/add"
+    const val CARD_ID_ARG = "cardId"
+    const val CARD = "profile/card/{$CARD_ID_ARG}"
 
     fun person(id: String) = "person/$id"
+    fun card(id: String) = "profile/card/$id"
 
     /** Which tab a pushed route belongs to, for the selected state of the navigation bar. */
     fun owningTab(route: String?): KipatDestination? = when (route) {
         PERSON -> KipatDestination.Connections
-        PROFILE_EDIT, REVEAL_STYLE, DEVELOPER, NFC_PROFILE, NFC_PROFILE_EDIT, NFC_PROFILE_NEW, NFC_MANUAL_PEER -> KipatDestination.Profile
+        PROFILE_EDIT, REVEAL_STYLE, CARDS, CARD_ADD, CARD, DEVELOPER, NFC_PROFILE, NFC_PROFILE_EDIT, NFC_PROFILE_NEW, NFC_MANUAL_PEER -> KipatDestination.Profile
         SHARE -> null
         else -> KipatDestination.fromRoute(route)
     }

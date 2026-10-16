@@ -42,6 +42,9 @@ import com.kipat.probe.ui.screens.developer.DeveloperToolsScreen
 import com.kipat.probe.ui.screens.developer.NfcProfileEditorScreen
 import com.kipat.probe.ui.screens.developer.NfcProfileTestScreen
 import com.kipat.probe.ui.screens.home.HomeScreen
+import com.kipat.probe.ui.screens.profile.AddKipatCardScreen
+import com.kipat.probe.ui.screens.profile.KipatCardDetailScreen
+import com.kipat.probe.ui.screens.profile.KipatCardsScreen
 import com.kipat.probe.ui.screens.profile.ProfileEditScreen
 import com.kipat.probe.ui.screens.profile.ProfileScreen
 import com.kipat.probe.ui.screens.profile.RevealStyleScreen
@@ -115,6 +118,7 @@ fun KipatApp(
                     onShare = { navController.navigate(KipatRoutes.SHARE) },
                     onOpenConnections = { navController.navigateToTab(KipatDestination.Connections) },
                     onOpenPerson = { navController.navigate(KipatRoutes.person(it)) },
+                    onCards = { navController.navigate(KipatRoutes.CARDS) },
                 )
             }
             composable(KipatDestination.Connections.route) {
@@ -124,6 +128,7 @@ fun KipatApp(
                 ProfileScreen(
                     onEdit = { navController.navigate(KipatRoutes.PROFILE_EDIT) },
                     onRevealStyle = { navController.navigate(KipatRoutes.REVEAL_STYLE) },
+                    onCards = { navController.navigate(KipatRoutes.CARDS) },
                     onShare = { navController.navigate(KipatRoutes.SHARE) },
                     onDeveloperTools = { navController.navigate(KipatRoutes.DEVELOPER) },
                 )
@@ -136,6 +141,29 @@ fun KipatApp(
             ) { id -> PersonScreen(connectionId = id.orEmpty(), snackbar = snackbar, onBack = { navController.popBackStack() }) }
             pushed(KipatRoutes.PROFILE_EDIT) { ProfileEditScreen(snackbar = snackbar, onDone = { navController.popBackStack() }) }
             pushed(KipatRoutes.REVEAL_STYLE) { RevealStyleScreen(onBack = { navController.popBackStack() }) }
+            pushed(KipatRoutes.CARDS) {
+                KipatCardsScreen(
+                    onBack = { navController.popBackStack() },
+                    onAdd = { navController.navigate(KipatRoutes.CARD_ADD) },
+                    onOpen = { navController.navigate(KipatRoutes.card(it)) },
+                )
+            }
+            pushed(KipatRoutes.CARD_ADD) {
+                AddKipatCardScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenCard = { id -> navController.navigate(KipatRoutes.card(id)) { popUpTo(KipatRoutes.CARDS) } },
+                )
+            }
+            pushed(
+                KipatRoutes.CARD,
+                arguments = listOf(navArgument(KipatRoutes.CARD_ID_ARG) { type = NavType.StringType }),
+            ) { id ->
+                KipatCardDetailScreen(
+                    cardId = id.orEmpty(),
+                    onBack = { navController.popBackStack() },
+                    onRevealStyle = { navController.navigate(KipatRoutes.REVEAL_STYLE) },
+                )
+            }
             pushed(KipatRoutes.DEVELOPER) {
                 DeveloperToolsScreen(
                     writer = writer,
@@ -149,6 +177,7 @@ fun KipatApp(
                     onBack = { navController.popBackStack() },
                     onEdit = { navController.navigate(KipatRoutes.NFC_PROFILE_EDIT) },
                     onCreate = { navController.navigate(KipatRoutes.NFC_PROFILE_NEW) },
+                    onConvertToLinked = { navController.navigate(KipatRoutes.CARD_ADD) },
                 )
             }
             pushed(KipatRoutes.NFC_PROFILE_EDIT) { NfcProfileEditorScreen(startBlank = false, onDone = { navController.popBackStack() }) }
@@ -170,7 +199,7 @@ private fun NavGraphBuilder.pushed(
         exitTransition = { fadeOut(tween(KipatMotion.Quick)) },
         popEnterTransition = { fadeIn(tween(KipatMotion.Quick)) },
         popExitTransition = { slideOutHorizontally(tween(KipatMotion.Standard, easing = KipatMotion.Accelerate)) { it / 8 } + fadeOut(tween(KipatMotion.Standard)) },
-    ) { entry -> content(entry.arguments?.getString(KipatRoutes.PERSON_ID_ARG)) }
+    ) { entry -> content(arguments.firstOrNull()?.let { entry.arguments?.getString(it.name) }) }
 }
 
 @Composable

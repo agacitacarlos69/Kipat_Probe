@@ -13,7 +13,9 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.hasScrollToNodeAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import com.kipat.probe.data.KipatRepository
@@ -149,8 +151,9 @@ class AppSmokeTest {
             compose.onNodeWithText("Profile type").assertExists()
             screenshot("profile-edit")
             compose.onNodeWithContentDescription("Close").performClick() // no changes → closes without asking
-            // The Kipat Tap row pushed it below the navigation bar: scroll before tapping.
-            compose.onNodeWithText("Developer tools").performScrollTo().performClick()
+            // Below the fold of the lazy list (not composed yet): scroll the list to it first.
+            compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Developer tools"))
+            compose.onNodeWithText("Developer tools").performClick()
             compose.onNodeWithText("Write to tag").assertExists()
             compose.onNodeWithText("Not present").assertExists() // Robolectric has no NFC adapter
             screenshot("developer")

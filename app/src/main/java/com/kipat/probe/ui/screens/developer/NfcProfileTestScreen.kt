@@ -42,7 +42,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.kipat.probe.data.KipatRepository
 import com.kipat.probe.data.NfcProfileReveal.toRevealPayload
+import com.kipat.probe.nfc.peer.KipatTapStore
 import com.kipat.probe.nfc.NfcProfileSession
 import com.kipat.probe.nfc.ProfileTagState
 import com.kipat.probe.nfc.profile.NfcProfileDiagnostics
@@ -76,7 +78,7 @@ const val NFC_PROFILE_PRIVACY_NOTE =
  * is unverified data, never a verified Kipat identity.
  */
 @Composable
-fun NfcProfileTestScreen(onBack: () -> Unit, onEdit: () -> Unit, onCreate: () -> Unit) {
+fun NfcProfileTestScreen(onBack: () -> Unit, onEdit: () -> Unit, onCreate: () -> Unit, onConvertToLinked: () -> Unit = {}) {
     val context = LocalContext.current
     val activity = LocalActivity.current
     val scope = rememberCoroutineScope()
@@ -86,6 +88,9 @@ fun NfcProfileTestScreen(onBack: () -> Unit, onEdit: () -> Unit, onCreate: () ->
     val draft by NfcProfileLab.draft.collectAsStateWithLifecycle()
     val mode by NfcProfileLab.mode.collectAsStateWithLifecycle()
     val includeAar by NfcProfileLab.includeAar.collectAsStateWithLifecycle()
+    // The canonical public profile right now: what an offline copy on a card is compared against.
+    val identity by KipatRepository.identity.collectAsStateWithLifecycle()
+    val ownProfile = remember(identity) { KipatTapStore.snapshot(context)?.profile }
 
     LifecycleResumeEffect(session) {
         session?.onResume()
@@ -138,6 +143,15 @@ fun NfcProfileTestScreen(onBack: () -> Unit, onEdit: () -> Unit, onCreate: () ->
             )
             KipatDivider()
             ActionRow(
+                "Load my Kipat profile",
+                icon = KipatSymbols.Person,
+                supporting = "Your current public profile, as an offline copy",
+                chevron = true,
+                enabled = ownProfile != null,
+                onClick = { NfcProfileLab.draft.value = ownProfile },
+            )
+            KipatDivider()
+            ActionRow(
                 "Load sample profile",
                 icon = KipatSymbols.ContactPage,
                 supporting = "${NfcProfilePayload.SAMPLE.displayName} · ${NfcProfilePayload.SAMPLE.role}",
@@ -164,6 +178,20 @@ fun NfcProfileTestScreen(onBack: () -> Unit, onEdit: () -> Unit, onCreate: () ->
                 enabled = session != null && draft != null,
                 onClick = { draft?.let { session?.armWrite(NfcProfileLab.request(it, mode, includeAar, context.packageName)) } },
             )
+
+            cardProfile(state)?.let { onCard ->
+                OfflineCardStatus(
+                    onCard = onCard,
+                    own = ownProfile,
+                    onUpdate = {
+                        ownProfile?.let { p ->
+                            NfcProfileLab.draft.value = p
+                            session?.armWrite(NfcProfileLab.request(p, mode, includeAar, context.packageName))
+                        }
+                    },
+                    onConvert = { session?.cancel(); onConvertToLinked() },
+                )
+            }
 
             StatePanel(
                 state = state,
@@ -234,6 +262,48 @@ fun NfcProfileTestScreen(onBack: () -> Unit, onEdit: () -> Unit, onCreate: () ->
             containerColor = Kipat.colors.surfaceElevated,
         )
     }
+}
+
+private fun cardProfile(state: ProfileTagState): NfcProfilePayload? = when (state) {
+    is ProfileTagState.Verified -> state.profile
+    is ProfileTagState.Detected -> (state.profile as? NfcProfileParse.Valid)?.profile
+    else -> null
+}
+
+/** What a self-contained card shows next to the current identity: a copy that goes out of date. */
+internal fun isOutOfDate(onCard: NfcProfilePayload, own: NfcProfilePayload): Boolean =
+    onCard.displayName != own.displayName || onCard.headline != own.headline || onCard.organization != own.organization ||
+        onCard.role != own.role || onCard.reveal != own.reveal || onCard.accent != own.accent
+
+@Composable
+private fun OfflineCardStatus(onCard: NfcProfilePayload, own: NfcProfilePayload?, onUpdate: () -> Unit, onConvert: () -> Unit) {
+    val mine = own != null && onCard.id != null && onCard.id == own.id
+    val stale = mine && isOutOfDate(onCard, own!!)
+    SectionHeading("Offline test card")
+    ActionRow(
+        "Offline test card",
+        supporting = when {
+            stale -> "Out of date. Tap card to update"
+            mine -> "Matches your current profile for now. It won't follow later changes"
+            else -> "Holds a copy of a test profile, not your Kipat"
+        },
+        value = when {
+            stale -> "Out of date"
+            mine -> "Up to date"
+            else -> "Copy"
+        },
+        valueColor = if (stale) Kipat.colors.warning else Kipat.colors.textSecondary,
+    )
+    Column(Modifier.padding(KipatSpacing.gutter), verticalArrangement = Arrangement.spacedBy(KipatSpacing.s8)) {
+        if (stale) KipatSecondaryButton("Tap card to update", icon = KipatSymbols.Nfc, onClick = onUpdate, modifier = Modifier.fillMaxWidth())
+        KipatSecondaryButton("Convert to linked Kipat card", icon = KipatSymbols.Link, onClick = onConvert, modifier = Modifier.fillMaxWidth())
+    }
+    Text(
+        "A linked card stores only a private link and always shows your current profile. Converting replaces the copy on the card, then reads it back to check.",
+        style = MaterialTheme.typography.bodySmall,
+        color = Kipat.colors.textTertiary,
+        modifier = Modifier.padding(horizontal = KipatSpacing.gutter),
+    )
 }
 
 @Composable

@@ -24,8 +24,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kipat.probe.data.KipatRepository
+import com.kipat.probe.ui.screens.profile.rememberCardSummary
 import com.kipat.probe.data.toRevealPayload
-import com.kipat.probe.model.CardState
 import com.kipat.probe.model.initialsOf
 import com.kipat.probe.reveal.RevealLauncher
 import com.kipat.probe.reveal.RevealSource
@@ -56,6 +56,7 @@ fun HomeScreen(
     onShare: () -> Unit,
     onOpenConnections: () -> Unit,
     onOpenPerson: (String) -> Unit,
+    onCards: () -> Unit = onShare,
 ) {
     val context = LocalContext.current
     val identity by KipatRepository.identity.collectAsStateWithLifecycle()
@@ -117,13 +118,14 @@ fun HomeScreen(
             }
             item { KipatDivider(inset = false) }
             item {
+                val cards = rememberCardSummary()
                 ActionRow(
-                    label = "Kipat Card",
-                    supporting = card.cardId,
+                    label = "Kipat card",
+                    supporting = cards.supporting,
                     icon = KipatSymbols.Nfc,
-                    value = card.state.label,
-                    valueColor = if (card.state == CardState.ACTIVE) Kipat.colors.verified else Kipat.colors.warning,
-                    onClick = onShare,
+                    value = cards.value,
+                    valueColor = if (cards.active > 0) Kipat.colors.verified else Kipat.colors.textSecondary,
+                    onClick = onCards,
                 )
             }
             item { KipatDivider(inset = false) }

@@ -132,6 +132,12 @@ fun RevealStyleScreen(onBack: () -> Unit) {
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = KipatSpacing.s24),
         ) {
+            Text(
+                "Used by your phone and linked Kipat cards",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Kipat.colors.textSecondary,
+                modifier = Modifier.padding(horizontal = KipatSpacing.gutter, vertical = KipatSpacing.s8),
+            )
             val previewPayload = identity.copy(revealTemplate = draft.template, revealTheme = draft.theme)
                 .toRevealPayload(RevealSource.NFC_TAG, isDemo = card.isDemo, authenticity = card.authenticity)
             LivePreview(previewPayload, replay)

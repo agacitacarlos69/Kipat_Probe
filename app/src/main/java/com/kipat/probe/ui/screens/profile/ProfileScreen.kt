@@ -16,6 +16,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.kipat.probe.cards.KipatCards
+import com.kipat.probe.cards.LinkedCardStatus
 import com.kipat.probe.data.KipatRepository
 import com.kipat.probe.data.toRevealPayload
 import com.kipat.probe.model.ProfileField
@@ -45,11 +47,14 @@ fun ProfileScreen(
     onEdit: () -> Unit,
     onRevealStyle: () -> Unit,
     onShare: () -> Unit,
+    onCards: () -> Unit = {},
     onDeveloperTools: () -> Unit,
 ) {
     val context = LocalContext.current
     val identity by KipatRepository.identity.collectAsStateWithLifecycle()
     val card by KipatRepository.card.collectAsStateWithLifecycle()
+    val linkedCards by KipatCards.cards.collectAsStateWithLifecycle()
+    val activeCards = linkedCards.count { it.ownerIdentityId == identity.id && it.status != LinkedCardStatus.REVOKED }
     val details = identity.publishedFields().filterKeys { it !in setOf(ProfileField.DISPLAY_NAME, ProfileField.PROGRAM, ProfileField.UNIVERSITY, ProfileField.ROLE, ProfileField.COMPANY) }
 
     Scaffold(
@@ -99,6 +104,13 @@ fun ProfileScreen(
                 ActionRow("Reveal style", value = identity.revealTemplate.label, chevron = true, onClick = onRevealStyle)
                 KipatDivider()
                 ActionRow("Share", value = "QR, link, card", chevron = true, onClick = onShare)
+                KipatDivider()
+                ActionRow(
+                    "Kipat cards",
+                    value = when (activeCards) { 0 -> "Add a card"; 1 -> "1 card"; else -> "$activeCards cards" },
+                    chevron = true,
+                    onClick = onCards,
+                )
                 KipatDivider()
                 KipatTapSettingRow()
             }

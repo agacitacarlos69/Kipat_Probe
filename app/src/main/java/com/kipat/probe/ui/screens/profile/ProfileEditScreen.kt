@@ -99,6 +99,12 @@ fun ProfileEditScreen(snackbar: SnackbarHostState, onDone: () -> Unit, vm: Profi
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = KipatSpacing.s32),
         ) {
+            Text(
+                "Changes apply everywhere you share this Kipat identity",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Kipat.colors.textSecondary,
+                modifier = Modifier.padding(horizontal = KipatSpacing.gutter, vertical = KipatSpacing.s8),
+            )
             Box {
                 ActionRow(
                     "Profile type",

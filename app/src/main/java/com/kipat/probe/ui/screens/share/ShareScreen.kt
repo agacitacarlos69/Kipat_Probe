@@ -41,7 +41,7 @@ import com.google.zxing.common.BitMatrix
 import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import com.kipat.probe.data.KipatRepository
-import com.kipat.probe.model.CardState
+import com.kipat.probe.ui.screens.profile.rememberCardSummary
 import com.kipat.probe.nfc.KipatTagUri
 import com.kipat.probe.ui.components.ActionRow
 import com.kipat.probe.ui.components.KipatDivider
@@ -62,7 +62,6 @@ import kotlinx.coroutines.withContext
 fun ShareScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val identity by KipatRepository.identity.collectAsStateWithLifecycle()
-    val card by KipatRepository.card.collectAsStateWithLifecycle()
     val link = remember(identity.cardId) { KipatTagUri.build(identity.cardId) }
     val firstName = identity.displayName.substringBefore(' ')
 
@@ -114,12 +113,13 @@ fun ShareScreen(onBack: () -> Unit) {
                 },
             )
             KipatDivider()
+            val cards = rememberCardSummary(activeLine = "Hold your card to the back of their phone")
             ActionRow(
-                "Kipat Card",
+                "Kipat card",
                 icon = KipatSymbols.Nfc,
-                supporting = if (card.state == CardState.ACTIVE) "Hold your card to the back of their phone" else "Your card isn't active",
-                value = card.state.label,
-                valueColor = if (card.state == CardState.ACTIVE) Kipat.colors.verified else Kipat.colors.warning,
+                supporting = cards.supporting,
+                value = cards.value,
+                valueColor = if (cards.active > 0) Kipat.colors.verified else Kipat.colors.textSecondary,
             )
             KipatDivider()
             KipatTapShareSection()
