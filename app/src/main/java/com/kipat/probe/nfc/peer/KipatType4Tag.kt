@@ -23,6 +23,8 @@ class KipatType4Tag(
     private var file = File.NONE
     private var ndefFile = ByteArray(0)
     private var cc = ByteArray(0)
+    /** Each Type 4 step is logged once per selection (Android may re-read during presence checks). */
+    private val logged = HashSet<String>()
 
     fun process(apdu: ByteArray?): ByteArray {
         if (apdu == null || apdu.size < 4) return Sw.WRONG_LENGTH.bytes
@@ -47,15 +49,21 @@ class KipatType4Tag(
     private fun selectApplication(apdu: ByteArray): ByteArray {
         val aid = data(apdu) ?: return Sw.WRONG_LENGTH.bytes
         reset()
-        if (!aid.contentEquals(NDEF_AID_V2)) return Sw.NOT_FOUND.bytes
+        // Android's NDEF check selects mapping 2.0 first and falls back to 1.0 only after an error.
+        val version = when {
+            aid.contentEquals(NDEF_AID_V2) -> MAPPING_V2
+            aid.contentEquals(NDEF_AID_V1) -> MAPPING_V1
+            else -> return Sw.NOT_FOUND.bytes
+        }
         val session = store.beginEncounter() ?: return Sw.NOT_FOUND.bytes.also {
-            log.event(PeerLog.TAG_TYPE4, "type4_refused", "reason=not_eligible")
+            log.event(PeerLog.TAG_TYPE4, "type4_refused", "reason=${store.lastRefusal}")
         }
         val message = KipatPeerBootstrap.message(session.sessionId, packageName)
         ndefFile = byteArrayOf((message.size shr 8).toByte(), message.size.toByte()) + message
-        cc = capabilityContainer(ndefFile.size)
+        cc = capabilityContainer(ndefFile.size, version)
         appSelected = true
-        log.event(PeerLog.TAG_TYPE4, "type4_selected", "session=${session.sessionId.shortId()} ndef=${message.size}")
+        logged.clear()
+        log.event(PeerLog.TAG_TYPE4, "ndef_aid_selected", "v=${version.toInt() shr 4} ndef=${message.size} session=${session.sessionId.shortId()}")
         return Sw.OK.bytes
     }
 
@@ -68,7 +76,12 @@ class KipatType4Tag(
             id.contentEquals(NDEF_FILE_ID) -> File.NDEF
             else -> return Sw.NOT_FOUND.bytes.also { file = File.NONE }
         }
+        once(if (file == File.CC) "cc_file_selected" else "ndef_file_selected", "")
         return Sw.OK.bytes
+    }
+
+    private fun once(name: String, detail: String) {
+        if (logged.add(name)) log.event(PeerLog.TAG_TYPE4, name, detail)
     }
 
     private fun readBinary(apdu: ByteArray): ByteArray {
@@ -82,9 +95,13 @@ class KipatType4Tag(
         if (offset >= content.size) return Sw.WRONG_P1P2.bytes
         val le = (apdu[4].toInt() and 0xFF).let { if (it == 0) 256 else it }
         val end = minOf(content.size, offset + minOf(le, MAX_LE))
-        if (file == File.NDEF && offset + (end - offset) >= content.size) {
-            log.event(PeerLog.TAG_TYPE4, "bootstrap_read", "bytes=${content.size - 2}")
+        when {
+            file == File.CC -> once("cc_file_read", "bytes=${end - offset}")
+            offset < 2 -> once("ndef_nlen_read", "bytes=${content.size - 2}")
+            else -> once("ndef_payload_read", "offset=$offset bytes=${end - offset}")
         }
+        // The whole NDEF message has left this phone: the other phone's Android can dispatch Kipat.
+        if (file == File.NDEF && end >= content.size && end > 2) once("ndef_bootstrap_served", "bytes=${content.size - 2}")
         return content.copyOfRange(offset, end) + Sw.OK.bytes
     }
 
@@ -103,6 +120,11 @@ class KipatType4Tag(
         /** NFC Forum Type 4 Tag, NDEF Tag Application (mapping version 2.0). */
         val NDEF_AID_V2: ByteArray = KipatApduProtocol.hex(NDEF_AID_V2_HEX)
         const val NDEF_AID_V2_HEX = "D2760000850101"
+        /** Mapping version 1.0 AID: Android's fallback when the 2.0 SELECT is answered with an error. */
+        val NDEF_AID_V1: ByteArray = KipatApduProtocol.hex(NDEF_AID_V1_HEX)
+        const val NDEF_AID_V1_HEX = "D2760000850100"
+        const val MAPPING_V2: Byte = 0x20
+        const val MAPPING_V1: Byte = 0x10
         val CC_FILE_ID = byteArrayOf(0xE1.toByte(), 0x03)
         val NDEF_FILE_ID = byteArrayOf(0xE1.toByte(), 0x04)
         const val INS_READ_BINARY: Byte = 0xB0.toByte()
@@ -113,13 +135,14 @@ class KipatType4Tag(
         val SW_SECURITY_NOT_SATISFIED = byteArrayOf(0x69, 0x82.toByte())
 
         /**
-         * 15-byte Capability Container: CCLEN 000F, mapping version 2.0, MLe, MLc, then the NDEF
-         * File Control TLV (T=04, L=06): file E104, max NDEF file size, read 00 (open),
-         * write FF (no write access).
+         * 15-byte Capability Container: CCLEN 000F, mapping version (2.0, or 1.0 when the reader
+         * selected the 1.0 AID: Android rejects a CC newer than the application it selected), MLe,
+         * MLc, then the NDEF File Control TLV (T=04, L=06): file E104, max NDEF file size, read 00
+         * (open), write FF (no write access).
          */
-        fun capabilityContainer(ndefFileSize: Int): ByteArray = byteArrayOf(
+        fun capabilityContainer(ndefFileSize: Int, version: Byte = MAPPING_V2): ByteArray = byteArrayOf(
             0x00, 0x0F,
-            0x20,
+            version,
             0x00, MAX_LE.toByte(),
             0x00, 0xFF.toByte(),
             0x04, 0x06,
@@ -146,7 +169,7 @@ class KipatHceRouter(private val type4: KipatType4Tag, private val kipat: KipatA
             val lc = apdu[4].toInt() and 0xFF
             val aid = if (apdu.size >= 5 + lc) apdu.copyOfRange(5, 5 + lc) else ByteArray(0)
             active = when {
-                aid.contentEquals(KipatType4Tag.NDEF_AID_V2) -> App.TYPE4
+                aid.contentEquals(KipatType4Tag.NDEF_AID_V2) || aid.contentEquals(KipatType4Tag.NDEF_AID_V1) -> App.TYPE4
                 aid.contentEquals(KipatApduProtocol.AID) -> App.KIPAT
                 else -> App.NONE
             }

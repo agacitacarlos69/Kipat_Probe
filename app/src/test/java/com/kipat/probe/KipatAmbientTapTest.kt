@@ -60,7 +60,8 @@ class KipatAmbientTapTest {
     @Test
     fun ndefApplicationSelectAndWrongAid() {
         assertEquals(Sw.OK.code, send("00A4040007D276000085010100").sw)
-        assertEquals("v1 mapping AID is not offered", Sw.NOT_FOUND.code, send("00A4040007D276000085010000").sw)
+        // Mapping 1.0 is Android's fallback SELECT (no Le), answered with a 1.0 CC (tested below).
+        assertEquals("v1 mapping AID is offered", Sw.OK.code, send("00A4040007D2760000850100").sw)
         assertEquals(Sw.NOT_FOUND.code, send("00A4040007A0000000041010").sw)
     }
 

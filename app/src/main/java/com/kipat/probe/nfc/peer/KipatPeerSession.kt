@@ -91,7 +91,17 @@ class PeerSessionStore(
     private val random: SecureRandom = SecureRandom(),
     private val log: PeerLog = PeerLog.NONE,
     private val ambientProfile: () -> PublicKipatProfileSnapshot? = { null },
+    /** Why [ambientProfile] is null right now (kipat_tap_disabled, no_public_profile, device_locked). */
+    private val ambientRefusal: () -> String = { "not_eligible" },
+    /**
+     * Runs a delivery after the current APDU response has been returned. The HCE service posts to
+     * the main thread; tests run it inline. An Activity launch never delays an APDU.
+     */
+    private val post: (() -> Unit) -> Unit = { it() },
 ) {
+    /** A peer profile committed on this phone, waiting for the FINALIZE barrier (ambient only). */
+    private class Committed(val session: PeerPresentSession, val reader: ByteArray, val peer: NfcProfilePayload, val bytes: Int)
+
     /** Set by the HCE service: shows the Reveal for a peer received during an ambient encounter. */
     @Volatile var ambientListener: PeerDeliveryListener? = null
 
@@ -103,6 +113,11 @@ class PeerSessionStore(
 
     @Volatile private var session: PeerPresentSession? = null
     @Volatile private var encounter: PeerPresentSession? = null
+    private var committed: Committed? = null
+
+    /** The reason the last ambient encounter was refused, for diagnostics. */
+    @Volatile var lastRefusal: String = "none"
+        private set
     private val encounterStarts = ArrayDeque<Long>()
     private var exchangeCounter = 0L
     private var revealShownFor = -1L
@@ -163,10 +178,14 @@ class PeerSessionStore(
     @Synchronized
     fun beginEncounter(): PeerPresentSession? {
         activeSession()?.let { return it }
-        val tap = ambientProfile() ?: return null
+        val tap = ambientProfile() ?: run {
+            lastRefusal = ambientRefusal()
+            return null
+        }
         val now = clock()
         while (encounterStarts.isNotEmpty() && now - encounterStarts.first() > 60_000) encounterStarts.removeFirst()
         if (encounterStarts.size >= MAX_ENCOUNTERS_PER_MINUTE) {
+            lastRefusal = "rate_limited"
             log.event(PeerLog.TAG_AMBIENT, "ambient_rate_limited", "encounters=${encounterStarts.size}")
             return null
         }
@@ -204,7 +223,11 @@ class PeerSessionStore(
         if (!s.ambient && session === s) _state.value = PresentState.ReceivingPeerProfile
     }
 
-    /** A complete, hash-checked, valid peer profile arrived (COMMIT). Delivered at most once per session pair. */
+    /**
+     * A complete, hash-checked, valid peer profile arrived (COMMIT). Ambient: held until the FINALIZE
+     * barrier ([onExchangeComplete]) so both phones reveal from the same point; it survives the RF
+     * link ending ([onLinkEnded]). Delivered at most once per session pair.
+     */
     @Synchronized
     fun onPeerProfileReceived(s: PeerPresentSession, readerSession: ByteArray, peer: NfcProfilePayload, uploadedBytes: Int) {
         val key = "${s.sessionId.toHex()}:${readerSession.toHex()}:${peer.id ?: peer.displayName}"
@@ -216,19 +239,43 @@ class PeerSessionStore(
         diagnostics(s, readerSession, peer.displayName, uploadedBytes, if (isSelf) "Own profile" else "Received")
         if (s.ambient) {
             log.event(PeerLog.TAG_AMBIENT, "peer_profile_received", "session=${s.sessionId.shortId()} bytes=$uploadedBytes self=$isSelf")
-            ambientListener?.onPeerDelivered(peer, s.sessionId, readerSession, uploadedBytes)
+            committed = Committed(s, readerSession, peer, uploadedBytes)
             return
         }
         _state.value = PresentState.Success(++exchangeCounter, peer, isSelf)
     }
 
-    /** The receiver finished (COMPLETE). Ends the sharing window: one exchange per Present. */
+    /**
+     * The link ended after COMMIT without FINALIZE (the reader moved away or closed early). The
+     * reader already had our profile before it uploaded, and its COMMIT was answered, so this is a
+     * completed mutual exchange: deliver now rather than lose it.
+     */
+    @Synchronized
+    fun onLinkEnded(s: PeerPresentSession?) {
+        val c = committed ?: return
+        if (s != null && c.session !== s) return
+        log.event(PeerLog.TAG_AMBIENT, "finalize_missing", "session=${c.session.sessionId.shortId()}")
+        deliver(c, "commit_then_link_end")
+    }
+
+    private fun deliver(c: Committed, reason: String) {
+        committed = null
+        log.event(PeerLog.TAG_AMBIENT, "mutual_complete", "reason=$reason")
+        // After the APDU response: the Reveal launch never delays FINALIZE's 9000.
+        post { ambientListener?.onPeerDelivered(c.peer, c.session.sessionId, c.reader, c.bytes) }
+    }
+
+    /**
+     * FINALIZE (the protocol's COMPLETE). With a committed peer this is the mutual-complete barrier:
+     * the reader reveals when it gets our 9000, we reveal right after sending it.
+     * Ends the encounter: the next touch opens a new one.
+     */
     @Synchronized
     fun onExchangeComplete(s: PeerPresentSession, readerSession: ByteArray, peerUploaded: Boolean) {
         if (s.ambient) {
-            // One exchange per encounter; the next touch opens a new one.
             if (encounter === s) encounter = null
-            log.event(PeerLog.TAG_AMBIENT, "exchange_complete", "session=${s.sessionId.shortId()} uploaded=$peerUploaded")
+            log.event(PeerLog.TAG_AMBIENT, "finalize_received", "session=${s.sessionId.shortId()} uploaded=$peerUploaded")
+            committed?.takeIf { it.session === s }?.let { deliver(it, "finalize") }
             return
         }
         if (session !== s) return

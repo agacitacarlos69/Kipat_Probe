@@ -29,6 +29,8 @@ sealed interface PeerExchangeResult {
         val uploadedBytes: Int,
         val upload: UploadOutcome,
         val durationMs: Long,
+        /** FINALIZE was answered 9000: the other phone crossed the same mutual-complete barrier. */
+        val finalized: Boolean = false,
         /** The presenter is showing this phone's own profile (same card id). Not an error, not a connection. */
         val isSelf: Boolean,
     ) : PeerExchangeResult {
@@ -127,12 +129,20 @@ class KipatPeerExchange(
                 caps and KipatApduProtocol.CAP_PEER_PROFILE_UPLOAD == 0 -> UploadOutcome.NOT_SUPPORTED_BY_PEER
                 else -> uploadOwn(ownProfile, chunk)
             }
-            // Best effort: the profile is already safely received.
-            runCatching { send(KipatApduProtocol.complete(), "complete") }
+            // FINALIZE (COMPLETE): the barrier both phones reveal from. After a confirmed COMMIT the
+            // other phone already holds our profile, so a lost FINALIZE does not undo the exchange.
+            val finalized = runCatching { send(KipatApduProtocol.complete(), "complete").isOk }.getOrDefault(false)
+            if (upload == UploadOutcome.SENT) {
+                log.event(PeerLog.TAG_READER, if (finalized) "finalize_ok" else "finalize_lost", "")
+                log.event(PeerLog.TAG_READER, "mutual_complete", "reason=${if (finalized) "finalize" else "commit_acked"}")
+            }
 
             val ms = clock() - started
             log.event(PeerLog.TAG_SESSION, "peer_exchange_success", "down=$down up=$up upload=$upload ms=$ms")
-            PeerExchangeResult.Success(profile, presenterSession.toHex(), readerSession.toHex(), down, up, upload, ms, isSelf)
+            PeerExchangeResult.Success(
+                profile = profile, presenterSession = presenterSession.toHex(), readerSession = readerSession.toHex(),
+                downloadedBytes = down, uploadedBytes = up, upload = upload, durationMs = ms, isSelf = isSelf, finalized = finalized,
+            )
         } catch (a: Abort) {
             log.event(PeerLog.TAG_SESSION, "peer_exchange_failed", "reason=${a.reason} ${a.detail}")
             PeerExchangeResult.Failed(a.reason, a.detail)
@@ -167,12 +177,14 @@ class KipatPeerExchange(
         log.event(PeerLog.TAG_READER, "peer_upload_started", "bytes=${bytes.size}")
         return try {
             if (!send(KipatApduProtocol.beginUpload(bytes.size, KipatApduProtocol.sha256(bytes)), "begin").isOk) return rejected("begin_rejected")
+            log.event(PeerLog.TAG_READER, "own_upload_begin_ok", "bytes=${bytes.size}")
             var offset = 0
             while (offset < bytes.size) {
                 val part = bytes.copyOfRange(offset, minOf(bytes.size, offset + chunk))
                 if (!send(KipatApduProtocol.writeChunk(offset, part), "write").isOk) return rejected("write_rejected")
                 offset += part.size
             }
+            log.event(PeerLog.TAG_READER, "own_upload_chunks_ok", "bytes=${bytes.size}")
             if (!send(KipatApduProtocol.commitUpload(), "commit").isOk) return rejected("commit_rejected")
             up = bytes.size
             log.event(PeerLog.TAG_READER, "peer_upload_completed", "bytes=${bytes.size}")

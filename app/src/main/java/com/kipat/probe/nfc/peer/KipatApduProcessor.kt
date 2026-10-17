@@ -89,7 +89,7 @@ class KipatApduProcessor(
         commands = 0
         // Kipat Tap: opens (or reuses) the ambient encounter when eligible; a manual session wins.
         val s = store.beginEncounter()
-        log.event(PeerLog.TAG_HCE, "kipat_aid_selected", "session=${s?.sessionId?.shortId() ?: "none"} ambient=${s?.ambient}")
+        log.event(PeerLog.TAG_HCE, "hce_custom_aid_selected", "session=${s?.sessionId?.shortId() ?: "none"} ambient=${s?.ambient}")
         return KipatApduProtocol.ok(byteArrayOf(KipatApduProtocol.PROTOCOL_VERSION))
     }
 
@@ -192,6 +192,9 @@ class KipatApduProcessor(
     }
 
     private fun resetLink() {
+        // A COMMIT without FINALIZE is still a finished exchange: RF deactivation or a new SELECT
+        // or HELLO never erases it (no-op once FINALIZE delivered it).
+        if (committed) store.onLinkEnded(linkSession)
         linkSession = null
         readerSession = null
         upload = null

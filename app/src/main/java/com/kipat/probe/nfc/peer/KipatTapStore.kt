@@ -48,6 +48,14 @@ object KipatTapStore {
     fun isDeviceLocked(context: Context): Boolean =
         context.getSystemService(KeyguardManager::class.java)?.isDeviceLocked == true
 
+    /** Why [eligibleProfile] is null, as a diagnostic code; null when Kipat Tap may share. */
+    fun refusal(context: Context): String? = when {
+        !isEnabled(context) -> "kipat_tap_disabled"
+        isDeviceLocked(context) -> "device_locked"
+        snapshot(context) == null -> "no_public_profile"
+        else -> null
+    }
+
     /** What may be shared right now by the HCE service; null = nothing. */
     fun eligibleProfile(context: Context): PublicKipatProfileSnapshot? =
         if (isEnabled(context) && !isDeviceLocked(context)) snapshot(context) else null

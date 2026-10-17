@@ -5,6 +5,9 @@ import android.content.pm.PackageManager
 import android.nfc.NfcAdapter
 import android.nfc.cardemulation.HostApduService
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.Process
 import android.os.SystemClock
 import android.util.Log
 import com.kipat.probe.pilot.PilotStore
@@ -27,6 +30,8 @@ import kotlinx.coroutines.flow.asStateFlow
  * [onCreate], so the APDU path never touches the network, images or a database.
  */
 class KipatHceService : HostApduService() {
+    private var createdAt = 0L
+    private var firstApdu = true
     private val router by lazy {
         KipatHceRouter(
             KipatType4Tag(KipatPeerSessions.presenter, packageName, KipatPeerSessions.log),
@@ -36,16 +41,35 @@ class KipatHceService : HostApduService() {
 
     override fun onCreate() {
         super.onCreate()
+        val start = SystemClock.elapsedRealtime()
         KipatIdentityStore.init(this)
         KipatPeerSessions.attach(this)
         KipatTapStore.snapshot(this) // warm the public snapshot before the first APDU
+        createdAt = SystemClock.elapsedRealtime()
+        // Android's NDEF check waits about 1 s for each answer (libnfc-nci RW_T4T_TOUT_RESP), and the
+        // first SELECT waits for this process to start: record how close a cold start comes.
+        val sinceProcess = createdAt - Process.getStartElapsedRealtime()
+        KipatPeerSessions.log.event(
+            PeerLog.TAG_HCE, "hce_service_created",
+            "cold=${sinceProcess < COLD_START_MS} since_process_ms=$sinceProcess create_ms=${createdAt - start}",
+        )
     }
 
-    override fun processCommandApdu(commandApdu: ByteArray?, extras: Bundle?): ByteArray =
-        router.process(commandApdu)
+    override fun processCommandApdu(commandApdu: ByteArray?, extras: Bundle?): ByteArray {
+        if (firstApdu) {
+            firstApdu = false
+            KipatPeerSessions.log.event(PeerLog.TAG_HCE, "hce_first_apdu", "ms=${SystemClock.elapsedRealtime() - createdAt}")
+        }
+        return router.process(commandApdu)
+    }
 
     override fun onDeactivated(reason: Int) {
         router.onDeactivated(linkLost = reason == DEACTIVATION_LINK_LOSS)
+    }
+
+    private companion object {
+        /** A service created this soon after its process started was a cold start. */
+        const val COLD_START_MS = 3_000L
     }
 }
 
@@ -68,10 +92,14 @@ object KipatPeerSessions {
         }
     }
 
+    private val main = Handler(Looper.getMainLooper())
+
     val presenter = PeerSessionStore(
         clock = { SystemClock.elapsedRealtime() },
         log = log,
         ambientProfile = { appContext?.let { KipatTapStore.eligibleProfile(it) } },
+        ambientRefusal = { appContext?.let { KipatTapStore.refusal(it) } ?: "no_context" },
+        post = { main.post(it) },
     )
 
     /** Exactly-once hand-off from either role to the Reveal. */
