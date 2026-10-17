@@ -130,6 +130,10 @@ object PilotStore {
             build, device, profile, tracker.last(), tracker.attempts(), tracker.events(), peer, connectionStored(), card, checklist(context),
             installedAtMs = pkg?.firstInstallTime, updatedAtMs = pkg?.lastUpdateTime, clearedAtMs = cleared,
             routing = runCatching { HceRoutingCheck.check(context) }.getOrNull(),
+            ambient = tracker.ambientEvidence(),
+            lastAmbient = tracker.lastAmbient(),
+            controlledReader = tracker.lastControlled(TapRoleSeen.INITIATOR),
+            controlledPresenter = tracker.lastControlled(TapRoleSeen.RESPONDER),
         )
     }
 
@@ -160,7 +164,7 @@ object PilotStore {
 
     internal fun decode(text: String, merge: Boolean = false) {
         val o = JSONObject(text)
-        val events = o.optJSONArray("events")?.let { a -> (0 until a.length()).map { i -> a.getJSONObject(i) }.map { e -> PilotEvent(e.getLong("wall"), e.getString("name"), e.getString("result"), e.optLong("elapsed", -1).takeIf { it >= 0 }, e.optString("detail")) } }.orEmpty()
+        val events = o.optJSONArray("events")?.let { a -> (0 until a.length()).map { i -> a.getJSONObject(i) }.map { e -> PilotEvent(e.getLong("wall"), e.getString("name"), e.getString("result"), e.optLong("elapsed", -1).takeIf { it >= 0 }, e.optString("detail"), e.optBoolean("c", false)) } }.orEmpty()
         val attempts = o.optJSONArray("attempts")?.let { a -> (0 until a.length()).mapNotNull { i -> runCatching { attemptFromJson(a.getJSONObject(i)) }.getOrNull() } }.orEmpty()
         if (merge) tracker.prependSaved(events, attempts) else tracker.restore(events, attempts)
         if (merge && peer != null) return // something newer already arrived in this process
@@ -177,6 +181,7 @@ object PilotStore {
         .put("id", a.id).put("role", a.role.name).put("wall", a.startedWallMs).put("mono", a.startedMonoMs)
         .put("failure", a.failureCode ?: JSONObject.NULL).put("finished", a.finishedMonoMs ?: JSONObject.NULL)
         .put("x", a.correlation ?: JSONObject.NULL)
+        .put("c", a.controlled)
         .put("stages", JSONObject().apply { a.stages.forEach { (s, st) -> put(s.name, JSONObject().put("r", st.result.name).put("at", st.atMs ?: JSONObject.NULL)) } })
 
     private fun attemptFromJson(o: JSONObject): TapAttempt {
@@ -196,6 +201,7 @@ object PilotStore {
             failureCode = o.optString("failure").takeIf { it.isNotBlank() && it != "null" },
             finishedMonoMs = if (o.isNull("finished")) null else o.getLong("finished"),
             correlation = o.optString("x").takeIf { it.startsWith("e-") },
+            controlled = o.optBoolean("c", false),
         )
     }
 }

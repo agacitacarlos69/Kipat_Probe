@@ -313,4 +313,47 @@ class PilotDiagnosticsTest {
         assertEquals("ids in hello are never kept", "v=1 x=e-a81f92", tracker.events().first { it.name == "peer_hello" }.detail.let { d -> d.split(' ').filter { it.startsWith("v=") || it.startsWith("x=") }.joinToString(" ") })
         assertFalse(tracker.events().any { it.detail.contains("presenter=") })
     }
+
+    // ------------------------------------------------------------------ decision gate: controlled vs ambient
+
+    @Test
+    fun controlledAttemptsAreTaggedAndNeverCountAsAmbientEvidence() {
+        at(0, "controlled_test_started", "role=presenter", "KipatPeerNfc")
+        at(5, "hce_service_created", "cold=false since_process_ms=9000", "KipatHce")
+        at(10, "hce_custom_aid_selected", "ambient=false", "KipatHce")
+        at(20, "peer_hello", "v=1 x=e-111111", "KipatPeerProtocol")
+        at(30, "controlled_test_stopped", "", "KipatPeerNfc")
+        val e = tracker.ambientEvidence()
+        assertFalse("the controlled run's HCE start is not ambient evidence", e.hceServiceCreated)
+        assertFalse(e.customAidSelected)
+        assertTrue(tracker.lastControlled(TapRoleSeen.RESPONDER)!!.controlled)
+        assertNull(tracker.lastAmbient())
+        assertTrue(tracker.events().filter { it.name == "hce_service_created" }.all { it.controlled })
+
+        // Later, an ambient touch on the same phone.
+        at(60_000, "hce_service_created", "cold=true since_process_ms=640", "KipatHce")
+        at(60_002, "ndef_aid_selected", "v=2 ndef=112", "KipatType4")
+        val after = tracker.ambientEvidence()
+        assertTrue(after.hceServiceCreated && after.ndefSelectReceived)
+        assertFalse(after.bootstrapServed)
+        assertFalse(tracker.lastAmbient()!!.controlled)
+        assertEquals("the controlled attempt is still there", 2, tracker.attempts().size)
+    }
+
+    @Test
+    fun noAmbientEventsMeansKipatNeverReceivedTheSelect() {
+        val e = tracker.ambientEvidence()
+        assertFalse(e.hceServiceCreated || e.firstApdu || e.ndefSelectReceived || e.bootstrapServed || e.kipatDispatchedHere)
+    }
+
+    @Test
+    fun anAmbientAttemptNeverContinuesAControlledOne() {
+        at(0, "controlled_test_started", "role=reader", "KipatPeerNfc")
+        at(10, "hce_aid_selected", "ok", "KipatPeerReader")
+        at(20, "controlled_test_stopped", "", "KipatPeerNfc")
+        at(30, "ndef_dispatched")
+        assertEquals(2, tracker.attempts().size)
+        assertTrue(tracker.attempts().first().controlled)
+        assertFalse(tracker.attempts().last().controlled)
+    }
 }

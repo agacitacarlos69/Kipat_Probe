@@ -64,7 +64,7 @@ import java.util.Date
  * content-free diagnostic to export or copy. Not a consumer feature.
  */
 @Composable
-fun PhysicalPilotScreen(onBack: () -> Unit, onCardTester: () -> Unit, onKipatCards: () -> Unit) {
+fun PhysicalPilotScreen(onBack: () -> Unit, onCardTester: () -> Unit, onKipatCards: () -> Unit, onControlledTest: () -> Unit = {}) {
     val context = LocalContext.current
     val version by PilotStore.version.collectAsStateWithLifecycle()
     // Re-read on resume too: NFC may have been switched on in Settings meanwhile.
@@ -159,6 +159,63 @@ fun PhysicalPilotScreen(onBack: () -> Unit, onCardTester: () -> Unit, onKipatCar
                 if (HceRoutingCheck.isXiaomiFamily()) {
                     Note("Xiaomi, Redmi and POCO: Kipat must be allowed to start in the background, or this phone can't answer a tap while Kipat is closed. In App settings turn on Autostart and set Battery saver to No restrictions. If NFC settings offer a Secure element position, choose HCE wallet.")
                     ActionRow("Open Kipat app settings", chevron = true, onClick = { openAppSettings(context) })
+                }
+            }
+
+            SectionHeading("Decision gate")
+            Note("Two separate questions. Controlled: does the Kipat exchange work when one phone is an explicit reader? Ambient: does Android ever hand the other phone's NDEF SELECT to Kipat while Kipat is closed?")
+
+            SectionHeading("Controlled mutual NFC test")
+            ActionRow(
+                "Controlled mutual NFC test",
+                supporting = "Phone A: Act as Kipat presenter. Phone B: Act as Kipat reader. Touch once. Then swap roles.",
+                icon = KipatSymbols.Contactless,
+                chevron = true,
+                onClick = onControlledTest,
+            )
+            listOf("As reader" to state.controlledReader, "As presenter" to state.controlledPresenter).forEach { (label, c) ->
+                KipatDivider()
+                if (c == null) {
+                    ActionRow(label, value = "Not run")
+                } else {
+                    ActionRow(
+                        label,
+                        supporting = (c.failureCode ?: "No failure") + (c.correlation?.let { "  $it" }.orEmpty()),
+                        value = if (c.mutual) "Mutual PASS" else "FAIL",
+                        valueColor = if (c.mutual) Kipat.colors.verified else Kipat.colors.revoked,
+                    )
+                    PilotReport.CONTROLLED_STAGES.forEach { s ->
+                        val r = c.result(s)
+                        ActionRow(
+                            "  ${s.label}",
+                            value = r.name.replace('_', ' ') + (c.elapsed(s)?.let { "  ${it} ms" }.orEmpty()),
+                            valueColor = when (r) {
+                                StageResult.PASS -> Kipat.colors.verified
+                                StageResult.FAIL -> Kipat.colors.revoked
+                                else -> Kipat.colors.textSecondary
+                            },
+                        )
+                    }
+                    ActionRow("  This phone received the other profile", value = yesNo(c.profileReceived))
+                    ActionRow("  Other phone confirmed ours", value = yesNo(c.profileSent))
+                }
+            }
+
+            state.ambient?.let { e ->
+                SectionHeading("Ambient test evidence")
+                ActionRow("Kipat HCE service invoked", value = yesNo(e.hceServiceCreated), valueColor = if (e.hceServiceCreated) Kipat.colors.verified else Kipat.colors.revoked)
+                KipatDivider()
+                ActionRow("NDEF SELECT reached Kipat", value = yesNo(e.ndefSelectReceived), valueColor = if (e.ndefSelectReceived) Kipat.colors.verified else Kipat.colors.revoked)
+                KipatDivider()
+                ActionRow("CC read", value = yesNo(e.ccRead))
+                KipatDivider()
+                ActionRow("NDEF read", value = yesNo(e.ndefRead))
+                KipatDivider()
+                ActionRow("Bootstrap served", value = yesNo(e.bootstrapServed))
+                KipatDivider()
+                ActionRow("Kipat dispatched on this phone", value = yesNo(e.kipatDispatchedHere))
+                if (!e.hceServiceCreated && !e.kipatDispatchedHere) {
+                    Note("No ambient Kipat code ran on this phone since results were cleared. If an ambient touch showed Android's Empty tag, Kipat never received the NDEF SELECT: changing the Type 4 bytes cannot fix that.")
                 }
             }
 

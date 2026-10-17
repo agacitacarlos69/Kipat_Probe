@@ -58,6 +58,8 @@ import com.kipat.probe.nfc.peer.PresentState
 import com.kipat.probe.nfc.peer.ReceiveState
 import com.kipat.probe.nfc.profile.NfcProfilePayload
 import com.kipat.probe.reveal.KipatHaptics
+import com.kipat.probe.pilot.PilotStore
+import com.kipat.probe.nfc.peer.PeerLog
 import com.kipat.probe.reveal.RevealLauncher
 import com.kipat.probe.reveal.RevealSource
 import com.kipat.probe.ui.components.ActionRow
@@ -107,8 +109,14 @@ fun ManualPeerTestScreen(onBack: () -> Unit) {
             if (presenting) preferKipatService(context, activity, prefer = false)
         }
     }
-    // Leaving the screen ends both roles: the profile is never left readable.
-    DisposableEffect(Unit) { onDispose { store.cancel(); reader?.reset() } }
+    // Leaving the screen ends both roles: the profile is never left readable. While it is open, the
+    // physical pilot tags every attempt as a controlled test, never as ambient Kipat Tap evidence.
+    DisposableEffect(Unit) {
+        onDispose {
+            store.cancel(); reader?.reset()
+            KipatPeerSessions.log.event(PeerLog.TAG_SESSION, "controlled_test_stopped", "")
+        }
+    }
 
     // Countdown + expiry while sharing.
     val sharingOpen = present is PresentState.Ready || present is PresentState.PeerDetected || present is PresentState.ReceivingPeerProfile
@@ -157,8 +165,14 @@ fun ManualPeerTestScreen(onBack: () -> Unit) {
                     caps = caps,
                     sendBack = sendBack,
                     onSendBack = { sendBack = it },
-                    onPresent = { reader?.reset(); arm(context, ownProfile) },
-                    onReceive = { store.cancel(); reader?.start(ownProfile, sendBack) },
+                    onPresent = {
+                        KipatPeerSessions.log.event(PeerLog.TAG_SESSION, "controlled_test_started", "role=presenter")
+                        reader?.reset(); arm(context, ownProfile)
+                    },
+                    onReceive = {
+                        KipatPeerSessions.log.event(PeerLog.TAG_SESSION, "controlled_test_started", "role=reader")
+                        store.cancel(); reader?.start(ownProfile, sendBack)
+                    },
                 )
             }
             Guidance()
@@ -179,6 +193,8 @@ private fun arm(context: Context, profile: NfcProfilePayload) {
 private fun openReveal(context: Context, profile: NfcProfilePayload) {
     val payload = profile.toRevealPayload(RevealSource.PEER_NFC, testProfile = false)
     KipatRepository.recordTap(payload)
+    PilotStore.peerSeen(payload)
+    PilotStore.record("reveal_requested")
     RevealLauncher.launch(context, payload)
 }
 
@@ -205,12 +221,12 @@ private fun ChooseRole(
 ) {
     Hero(
         title = "Touch phones to share",
-        body = "For diagnosing HCE and reader behaviour. Normal Kipat Tap doesn't need these controls: one phone presents for 60 seconds, the other receives.",
+        body = "Controlled mutual NFC test, an engineering diagnostic. Phone A: Act as Kipat presenter. Phone B: Act as Kipat reader. Touch once and hold until both show the other person. Then swap roles. Normal Kipat Tap never shows these controls.",
     )
     caps.notice?.let { Notice(it) }
     Column(Modifier.padding(KipatSpacing.gutter), verticalArrangement = Arrangement.spacedBy(KipatSpacing.s12)) {
-        KipatPrimaryButton("Present my Kipat", icon = KipatSymbols.Contactless, onClick = onPresent, enabled = caps.presentReady, modifier = Modifier.fillMaxWidth())
-        KipatSecondaryButton("Receive a Kipat", onClick = onReceive, enabled = caps.receiveReady, modifier = Modifier.fillMaxWidth())
+        KipatPrimaryButton("Act as Kipat presenter", icon = KipatSymbols.Contactless, onClick = onPresent, enabled = caps.presentReady, modifier = Modifier.fillMaxWidth())
+        KipatSecondaryButton("Act as Kipat reader", onClick = onReceive, enabled = caps.receiveReady, modifier = Modifier.fillMaxWidth())
     }
     Row(
         Modifier

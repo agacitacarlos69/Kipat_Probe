@@ -58,6 +58,9 @@ data class CardTestRecord(
 
 /** The human checklist: things only a person watching the phones can confirm. */
 enum class PilotCheck(val label: String) {
+    ANDROID_EMPTY_TAG("Ambient: Android showed New tag / Empty tag (tick if it did)"),
+    CONTROLLED_A("Controlled A presenter, B reader: both phones showed the other person"),
+    CONTROLLED_B("Controlled roles swapped: both phones showed the other person"),
     CORRECT_PERSON("Correct other person displayed"),
     CORRECT_REVEAL("Correct Reveal"),
     CORRECT_ACCENT("Correct accent"),
@@ -85,6 +88,10 @@ data class PilotState(
     val clearedAtMs: Long? = null,
     /** Whether Android routes the NDEF and Kipat AIDs to Kipat on this phone. */
     val routing: HceRouting? = null,
+    val ambient: AmbientEvidence? = null,
+    val lastAmbient: TapAttempt? = null,
+    val controlledReader: TapAttempt? = null,
+    val controlledPresenter: TapAttempt? = null,
 )
 
 /**
@@ -111,6 +118,7 @@ object PilotReport {
     fun attemptJson(a: TapAttempt): JSONObject = JSONObject()
         .put("id", a.id)
         .put("role", a.role.name.lowercase())
+        .put("test", if (a.controlled) "controlled" else "ambient")
         .put("exchange", a.correlation ?: JSONObject.NULL)
         .put("startedAt", iso(a.startedWallMs))
         .put("failureCode", a.failureCode ?: JSONObject.NULL)
@@ -157,6 +165,10 @@ object PilotReport {
         } ?: JSONObject.NULL)
         .put("profile", state.profile?.let { JSONObject().put("pseudonym", it.pseudonym).put("reveal", it.reveal).put("accent", it.accent) } ?: JSONObject.NULL)
         .put("lastAttempt", state.last?.let(::attemptJson) ?: JSONObject.NULL)
+        .put("ambientTest", ambientJson(state))
+        .put("controlledTest", JSONObject()
+            .put("asReader", state.controlledReader?.let(::attemptJson) ?: JSONObject.NULL)
+            .put("asPresenter", state.controlledPresenter?.let(::attemptJson) ?: JSONObject.NULL))
         .put("attempts", JSONArray().apply { state.attempts.forEach { put(attemptJson(it)) } })
         .put("lastPeer", state.peer?.let { JSONObject().put("peer", it.idHash).put("reveal", it.reveal).put("accent", it.accent).put("at", iso(it.atWallMs)) } ?: JSONObject.NULL)
         .put("connection", when (state.connectionStored) { true -> "stored_by_user"; false -> "not_connected"; null -> "n/a" })
@@ -168,16 +180,37 @@ object PilotReport {
         .put("humanChecklist", JSONObject().apply { PilotCheck.entries.forEach { put(it.name.lowercase(), state.checklist[it] == true) } })
         .put("note", "Stage results are measured by the app. Human-observed behaviour (return to the previous app, correct person) is only in humanChecklist.")
 
+    /** The decision-gate answers for the ambient path, all measured on this phone (none inferred). */
+    fun ambientJson(state: PilotState): JSONObject {
+        val e = state.ambient
+        val r = state.routing
+        return JSONObject()
+            .put("ndefV2Default", r?.ndefV2?.name ?: "UNKNOWN")
+            .put("ndefV1Default", r?.ndefV1?.name ?: "UNKNOWN")
+            .put("kipatAidDefault", r?.kipatAid?.name ?: "UNKNOWN")
+            .put("hceServiceInvoked", e?.hceServiceCreated ?: JSONObject.NULL)
+            .put("firstApduObserved", e?.firstApdu ?: JSONObject.NULL)
+            .put("ndefSelectReachedKipat", e?.ndefSelectReceived ?: JSONObject.NULL)
+            .put("ndefSelectRefusedByKipat", e?.ndefSelectRefused ?: JSONObject.NULL)
+            .put("ccRead", e?.ccRead ?: JSONObject.NULL)
+            .put("ndefRead", e?.ndefRead ?: JSONObject.NULL)
+            .put("bootstrapServed", e?.bootstrapServed ?: JSONObject.NULL)
+            .put("kipatDispatchedOnThisPhone", e?.kipatDispatchedHere ?: JSONObject.NULL)
+            .put("systemEmptyTagObserved", state.checklist[PilotCheck.ANDROID_EMPTY_TAG] == true)
+            .put("lastAttempt", state.lastAmbient?.let(::attemptJson) ?: JSONObject.NULL)
+    }
+
     fun eventsJson(events: List<PilotEvent>): JSONArray = JSONArray().apply {
         events.forEach { e ->
             put(JSONObject().put("at", iso(e.wallMs)).put("event", e.name).put("result", e.result)
-                .put("elapsedMs", e.elapsedMs ?: JSONObject.NULL).put("detail", e.detail))
+                .put("elapsedMs", e.elapsedMs ?: JSONObject.NULL).put("detail", e.detail)
+                .put("test", if (e.controlled) "controlled" else "ambient"))
         }
     }
 
     /** Compact form for app-private persistence (raw epoch ms). */
     internal fun eventsJsonRaw(events: List<PilotEvent>): JSONArray = JSONArray().apply {
-        events.forEach { e -> put(JSONObject().put("wall", e.wallMs).put("name", e.name).put("result", e.result).put("elapsed", e.elapsedMs ?: -1).put("detail", e.detail)) }
+        events.forEach { e -> put(JSONObject().put("wall", e.wallMs).put("name", e.name).put("result", e.result).put("elapsed", e.elapsedMs ?: -1).put("detail", e.detail).put("c", e.controlled)) }
     }
 
     fun deviceText(state: PilotState): String = buildString {
@@ -230,6 +263,25 @@ tester ticked in the checklist.
             appendLine("Background: restricted ${r.backgroundRestricted}, battery unrestricted ${r.batteryUnrestricted}, bucket ${r.standbyBucket}")
         }
         appendLine()
+        state.ambient?.let { e ->
+            appendLine("AMBIENT TEST")
+            appendLine("NDEF v2 default: ${state.routing?.ndefV2 ?: Tri.UNKNOWN}, NDEF v1 default: ${state.routing?.ndefV1 ?: Tri.UNKNOWN}")
+            appendLine("Kipat HCE service invoked: ${yesNoUpper(e.hceServiceCreated)}")
+            appendLine("NDEF SELECT reached Kipat: ${yesNoUpper(e.ndefSelectReceived)}${if (e.ndefSelectRefused) " (refused by Kipat)" else ""}")
+            appendLine("CC read: ${yesNoUpper(e.ccRead)}, NDEF read: ${yesNoUpper(e.ndefRead)}, bootstrap served: ${yesNoUpper(e.bootstrapServed)}")
+            appendLine("Kipat dispatched on this phone: ${yesNoUpper(e.kipatDispatchedHere)}")
+            appendLine("System Empty tag observed (tester): ${yesNoUpper(state.checklist[PilotCheck.ANDROID_EMPTY_TAG] == true)}")
+            appendLine()
+        }
+        listOf("as reader" to state.controlledReader, "as presenter" to state.controlledPresenter).forEach { (label, c) ->
+            if (c == null) return@forEach
+            appendLine("CONTROLLED TEST $label")
+            CONTROLLED_STAGES.forEach { s -> appendLine("${s.label} ${c.result(s).name.replace('_', ' ')}") }
+            appendLine("This phone received the other profile: ${yesNoUpper(c.profileReceived)}")
+            appendLine("Other phone confirmed ours: ${yesNoUpper(c.profileSent)}")
+            c.failureCode?.let { appendLine("Failure: $it") }
+            appendLine()
+        }
         val a = state.last
         if (a == null) {
             appendLine("Last Kipat Tap: none recorded")
@@ -255,4 +307,11 @@ tester ticked in the checklist.
     }
 
     private fun yn(b: Boolean) = if (b) "yes" else "no"
+    private fun yesNoUpper(b: Boolean) = if (b) "YES" else "NO"
+
+    /** The stages the controlled test can reach (no Type 4 bootstrap: the reader selects the Kipat AID directly). */
+    val CONTROLLED_STAGES = listOf(
+        PilotStage.KIPAT_AID, PilotStage.HELLO, PilotStage.PEER_DOWNLOAD, PilotStage.OWN_BEGIN, PilotStage.OWN_CHUNKS,
+        PilotStage.OWN_COMMIT, PilotStage.FINALIZE, PilotStage.MUTUAL, PilotStage.REVEAL_REQUESTED,
+    )
 }

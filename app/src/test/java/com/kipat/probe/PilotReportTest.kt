@@ -74,6 +74,10 @@ class PilotReportTest {
         assertEquals("FAIL", last.getJSONObject("stages").getJSONObject("own_begin").getString("result"))
         assertEquals("NOT_REACHED", last.getJSONObject("stages").getJSONObject("reveal_requested").getString("result"))
         assertTrue(json.getJSONObject("humanChecklist").getBoolean("correct_person"))
+        val ambient = json.getJSONObject("ambientTest")
+        listOf("ndefV2Default", "ndefV1Default", "hceServiceInvoked", "ndefSelectReachedKipat", "bootstrapServed", "systemEmptyTagObserved").forEach { assertTrue(it, ambient.has(it)) }
+        assertTrue(json.getJSONObject("controlledTest").has("asReader"))
+        assertTrue(json.getJSONObject("controlledTest").has("asPresenter"))
         val text = json.toString() + PilotReport.eventsJson(s.events).toString() + PilotReport.deviceText(s)
         listOf("Vash", "Ana", "KPT-VASH-0001", "KPT-ANA-0001").forEach { assertFalse("leaks $it", text.contains(it)) }
         assertTrue(text.contains(PilotReport.pseudonym("KPT-VASH-0001")))
@@ -107,7 +111,7 @@ class PilotReportTest {
         assertTrue(text.contains("Local Reveal requested NOT REACHED"))
         assertTrue(text.contains("Mutual exchange on this phone: NO"))
         assertTrue(text.contains("Failure: OWN_BEGIN_LINK_LOST"))
-        assertTrue(text.contains("Checklist: 1/8"))
+        assertTrue(text.contains("Checklist: 1/${PilotCheck.entries.size}"))
         assertFalse(text.contains("Ana"))
     }
 

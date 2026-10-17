@@ -128,8 +128,8 @@ class ManualPeerTestScreenTest {
         compose.setContent { KipatTheme { ManualPeerTestScreen(onBack = {}) } }
         compose.onNodeWithText("Touch phones to share").assertIsDisplayed()
         compose.onNodeWithText("This phone doesn't have NFC, so it can't share by touch.").assertIsDisplayed()
-        compose.onNodeWithText("Present my Kipat").assertIsNotEnabled()
-        compose.onNodeWithText("Receive a Kipat").assertIsNotEnabled()
+        compose.onNodeWithText("Act as Kipat presenter").assertIsNotEnabled()
+        compose.onNodeWithText("Act as Kipat reader").assertIsNotEnabled()
         compose.onNodeWithText("Send my profile back").assertIsDisplayed()
         screenshot("nfc-peer-choose-role")
     }

@@ -179,6 +179,7 @@ fun KipatApp(
                     onBack = { navController.popBackStack() },
                     onCardTester = { navController.navigate(KipatRoutes.NFC_PROFILE) },
                     onKipatCards = { navController.navigate(KipatRoutes.CARDS) },
+                    onControlledTest = { navController.navigate(KipatRoutes.NFC_MANUAL_PEER) },
                 )
             }
             pushed(KipatRoutes.NFC_PROFILE) {

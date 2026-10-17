@@ -56,6 +56,25 @@ data class PilotEvent(
     val elapsedMs: Long?,
     /** Redacted detail (allow-listed keys only), e.g. "bytes=812 reason=hash_mismatch". */
     val detail: String,
+    /** Recorded during the Developer controlled test, never ambient evidence. */
+    val controlled: Boolean = false,
+)
+
+/**
+ * What the ambient encounters left on this phone, from non-controlled events only. These are the
+ * decision-gate answers: did Android ever run Kipat's HCE service for an ambient touch, did the
+ * NDEF SELECT reach Kipat, and how far the Type 4 read got.
+ */
+data class AmbientEvidence(
+    val hceServiceCreated: Boolean,
+    val firstApdu: Boolean,
+    val ndefSelectReceived: Boolean,
+    val ndefSelectRefused: Boolean,
+    val ccRead: Boolean,
+    val ndefRead: Boolean,
+    val bootstrapServed: Boolean,
+    val kipatDispatchedHere: Boolean,
+    val customAidSelected: Boolean,
 )
 
 data class TapAttempt(
@@ -68,6 +87,8 @@ data class TapAttempt(
     val finishedMonoMs: Long? = null,
     /** "e-xxxxxx": the same value on both phones for one exchange (from HELLO). */
     val correlation: String? = null,
+    /** Run from the Developer controlled test (explicit presenter / reader), not an ambient touch. */
+    val controlled: Boolean = false,
 ) {
     fun result(stage: PilotStage): StageResult = stages[stage]?.result ?: when {
         stage == PilotStage.REVEAL_DISPLAYED && stages[PilotStage.REVEAL_REQUESTED]?.result == StageResult.PASS -> StageResult.UNKNOWN
@@ -143,7 +164,31 @@ class PilotTracker(
     var version: Long = 0
         private set
 
+    /** Set while the Developer controlled test is open: its attempts and events are tagged. */
+    @Volatile var controlled: Boolean = false
+        private set
+
     @Synchronized fun events(): List<PilotEvent> = events.toList()
+
+    /** The latest attempt of each kind: ambient Kipat Tap, controlled reader, controlled presenter. */
+    @Synchronized fun lastAmbient(): TapAttempt? = attempts.lastOrNull { !it.controlled }
+    @Synchronized fun lastControlled(role: TapRoleSeen): TapAttempt? = attempts.lastOrNull { it.controlled && it.role == role }
+
+    @Synchronized
+    fun ambientEvidence(): AmbientEvidence {
+        val names = events.filter { !it.controlled }.map { it.name }.toSet()
+        return AmbientEvidence(
+            hceServiceCreated = "hce_service_created" in names,
+            firstApdu = "hce_first_apdu" in names,
+            ndefSelectReceived = "ndef_aid_selected" in names || "type4_selected" in names || "type4_refused" in names,
+            ndefSelectRefused = "type4_refused" in names,
+            ccRead = "cc_file_read" in names,
+            ndefRead = "ndef_nlen_read" in names,
+            bootstrapServed = "ndef_bootstrap_served" in names || "bootstrap_read" in names,
+            kipatDispatchedHere = "ndef_dispatched" in names,
+            customAidSelected = "hce_custom_aid_selected" in names || "kipat_aid_selected" in names || "hce_aid_selected" in names,
+        )
+    }
     @Synchronized fun attempts(): List<TapAttempt> = attempts.toList()
     @Synchronized fun last(): TapAttempt? = attempts.lastOrNull()
 
@@ -182,6 +227,9 @@ class PilotTracker(
         val now = monoClock()
         val code = PilotRedactor.value(detail, "reason")
         when (name) {
+            // ---- Developer controlled test (explicit presenter / reader) opens and closes a window
+            "controlled_test_started" -> { controlled = true }
+            "controlled_test_stopped" -> { controlled = false }
             // ---- responder: the Type 4 bootstrap, step by step
             "hce_service_created", "hce_first_apdu" -> Unit
             "ndef_aid_selected", "type4_selected" -> { ensure(TapRoleSeen.RESPONDER, now); pass(PilotStage.NDEF_AID, now) }
@@ -301,7 +349,7 @@ class PilotTracker(
 
     private fun record(name: String, result: String, now: Long, detail: String) {
         val a = current()
-        events.addLast(PilotEvent(wallClock(), name, result, a?.let { now - it.startedMonoMs }, PilotRedactor.redact(detail)))
+        events.addLast(PilotEvent(wallClock(), name, result, a?.let { now - it.startedMonoMs }, PilotRedactor.redact(detail), controlled))
         while (events.size > maxEvents) events.removeFirst()
         version++
     }
@@ -309,7 +357,7 @@ class PilotTracker(
     private fun current(): TapAttempt? = attempts.lastOrNull()
 
     private fun start(role: TapRoleSeen, now: Long) {
-        attempts.addLast(TapAttempt(nextId++, role, wallClock(), now, emptyMap()))
+        attempts.addLast(TapAttempt(nextId++, role, wallClock(), now, emptyMap(), controlled = controlled))
         while (attempts.size > maxAttempts) attempts.removeFirst()
     }
 
@@ -317,7 +365,7 @@ class PilotTracker(
     private fun ensure(role: TapRoleSeen?, now: Long) {
         val a = current()
         val stale = a == null || a.finishedMonoMs != null || now - a.startedMonoMs > ATTEMPT_WINDOW_MS ||
-            (role != null && a.role != TapRoleSeen.NONE && a.role != role)
+            a.controlled != controlled || (role != null && a.role != TapRoleSeen.NONE && a.role != role)
         if (stale) start(role ?: TapRoleSeen.NONE, now)
         else if (role != null && a!!.role == TapRoleSeen.NONE) replace(a.copy(role = role))
     }

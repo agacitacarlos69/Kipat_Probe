@@ -284,6 +284,8 @@ class PeerSessionStore(
             _state.value = PresentState.Success(++exchangeCounter, peer = null, isSelf = false)
             diagnostics(s, readerSession, null, 0, "Shared one way")
         }
+        log.event(PeerLog.TAG_SESSION, "finalize_received", "session=${s.sessionId.shortId()} uploaded=$peerUploaded")
+        if (peerUploaded) log.event(PeerLog.TAG_SESSION, "mutual_complete", "reason=finalize")
         log.event(PeerLog.TAG_SESSION, "peer_exchange_success", "session=${s.sessionId.shortId()} uploaded=$peerUploaded")
     }
 

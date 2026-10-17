@@ -242,7 +242,7 @@ class KipatTapAndroidTest {
         ActivityScenario.launch<MainActivity>(main).use {
             compose.waitForIdle()
             compose.onNodeWithText("Kipat Tap").assertIsDisplayed()
-            listOf("Present my Kipat", "Receive a Kipat", "Send my profile back", "Share with another Kipat").forEach {
+            listOf("Present my Kipat", "Receive a Kipat", "Act as Kipat presenter", "Act as Kipat reader", "Send my profile back", "Share with another Kipat").forEach {
                 assertEquals("'$it' is not a consumer control", 0, compose.onAllNodesWithText(it).fetchSemanticsNodes().size)
             }
             listOf("APDU", "AID", "HCE", "ISO-DEP", "IsoDep", "Type 4").forEach {
