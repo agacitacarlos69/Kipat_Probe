@@ -1,0 +1,15 @@
+Create a photoreal photograph of a tap moment using the supplied Kipat NFC card artwork (reference image = the exact card face).
+
+PRESERVE THE SUPPLIED ARTWORK EXACTLY. Do not redesign it, do not invent typography, do not add text, logos or patterns. The card face shows only: a small graphite mark and lowercase "kipat" at the top-left, two thin white rings on the right half around one small blue dot.
+
+Scene: one relaxed, natural hand holds the card by its left edge and touches the card's right half (where the rings are) against the back of a plain matte dark-grey smartphone held flat in the other hand. Only the phone's plain back is visible: no screen, no logo, no camera bump branding. The card face with its artwork faces the camera.
+
+Object: standard CR80 card, 85.60 x 53.98 mm, 0.76 mm thin, rounded 3.2 mm corners, exact proportions.
+Material: frosted translucent plastic, milky and softly diffusing, the fingers faintly visible through it where they overlap.
+Finish: the rings are opaque white ink; the dot is opaque blue ink; the "kipat" mark is graphite ink. No metallic foil.
+
+Photography: calm, neutral daylight interior, soft window light, natural skin, realistic hands with five fingers each, natural shallow depth of field on the background only, card and phone back sharp.
+
+Avoid: neon, glow, light rays, energy waves, particles, holograms, UI overlays, extra text, logos, invented QR, watermark, metallic look, credit card styling, dramatic distortion.
+
+The result must look like a real product photograph, not an AI concept.

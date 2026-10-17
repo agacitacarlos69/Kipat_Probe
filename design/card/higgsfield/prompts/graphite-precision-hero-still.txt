@@ -1,0 +1,17 @@
+Create a photoreal product-design visualization of the supplied Kipat NFC card artwork.
+
+PRESERVE THE SUPPLIED ARTWORK EXACTLY. The reference image is the final, approved flat artwork of the card face. Do not redesign the graphics. Do not invent typography. Do not add text. Do not add logos. Do not add patterns. Keep every element exactly where it is: the small mark and lowercase word "kipat" at the top-left, one thin grey circular orbit line on the right half with a tiny light dot on its upper right, and one small solid blue dot at the exact centre of that orbit. Nothing else is printed on this face.
+
+Object: one standard CR80 PVC NFC card, 85.60 x 53.98 mm, 0.76 mm thick, rounded corners of 3.2 mm. Exact card proportions, no stretching.
+
+Material: matte soft-touch dark graphite plastic (neutral deep grey, not blue-black), velvety surface that diffuses light.
+
+Finish: the thin orbit line and the small blue dot are a subtle raised clear gloss that catches the light slightly more than the matte surface; no metallic foil anywhere.
+
+Photography: high-end industrial product photography, neutral warm-grey studio, soft controlled directional light from the upper left, accurate card proportions, subtle realistic edge thickness of a plastic card, realistic material response, high detail, no exaggerated reflections, gentle soft shadow.
+
+Composition: the card is the hero, lying flat on a minimal matte neutral surface at a slight three-quarter angle (about 20 degrees of rotation, camera about 35 degrees above the surface), the whole card visible with generous empty space around it. No other objects.
+
+Avoid: phone mockup, hands, cyberpunk lighting, neon, glowing edges, holographic effects, floating HUD, random reflections, luxury-watch advertising aesthetic, fake text, extra logo, invented QR code, watermark, metal or metallic look (the card is plastic), chip or EMV contact plate, embossed numbers, credit card styling, dramatic camera distortion, depth-of-field blur on the card itself.
+
+The result must look like a real manufactured product photographed in a studio, not an AI concept card.

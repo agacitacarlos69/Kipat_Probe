@@ -1,0 +1,14 @@
+Create a photoreal product-design photograph of two Kipat NFC cards made exactly from the two supplied flat artworks. Reference 1 is the card FRONT, reference 2 is the card BACK.
+
+PRESERVE BOTH ARTWORKS EXACTLY. Do not redesign the graphics. Do not invent typography. Do not add or change any text, logo, number, pattern or QR code. The front shows only: a small mark and lowercase "kipat" at the top-left, one thin dark-grey orbit circle on the right half with a tiny light dot on its upper right, and a small blue dot at the orbit's centre. The back shows only: the name "Vash Puno", two small grey lines beneath it, a QR code on a light square at the bottom right, and a small mark with "Tap to connect" at the bottom left.
+
+Objects: two standard CR80 PVC NFC cards, 85.60 x 53.98 mm, 0.76 mm thin, rounded 3.2 mm corners, exact proportions. The back card lies flat; the front card rests on top of it, offset to the upper right and rotated about 8 degrees, so both faces are fully readable.
+
+Material: matte soft-touch dark graphite plastic (neutral deep grey, never blue-black), velvety, diffuses light.
+Finish: only the thin orbit line has a subtle raised clear gloss that catches the light a little; everything else is matte. No metallic foil.
+
+Photography: high-end industrial product photography, neutral warm-grey studio surface, soft controlled directional light from the upper left, realistic thin plastic edges, gentle soft shadows, high detail, camera about 40 degrees above the surface.
+
+Avoid: phone, hands, cyberpunk lighting, neon, glowing edges, holographic effects, HUD, random reflections, luxury-watch advertising look, invented text, extra logos, changed QR code, watermark, metal or metallic look, chip or EMV contact plate, embossed numbers, credit card styling, thick card edges, dramatic distortion.
+
+The result must look like a real manufactured product, not an AI concept card.
