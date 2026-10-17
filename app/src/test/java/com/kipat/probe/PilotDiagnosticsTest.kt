@@ -69,46 +69,108 @@ class PilotDiagnosticsTest {
 
     // ------------------------------------------------------------------ stage machine: both roles
 
-    @Test
-    fun initiatorHappyPathPassesEveryStageWithMeasuredTimes() {
+    /** The initiator's full ambient Kipat Tap, as the real code logs it. */
+    private fun initiatorHappyPath() {
         at(0, "ndef_dispatched")
         at(5, "ambient_initiator_created", "since_create_ms=5")
         at(40, "hce_aid_selected", "ok", "KipatPeerReader")
-        at(60, "peer_hello", "v=1 presenter=aa reader=bb", "KipatPeerProtocol")
+        at(60, "peer_hello", "v=1 presenter=aa reader=bb x=e-0a0b0c", "KipatPeerProtocol")
         at(180, "profile_download_complete", "bytes=820", "KipatPeerReader")
+        at(190, "peer_upload_started", "bytes=790", "KipatPeerReader")
+        at(200, "own_upload_begin_ok", "bytes=790", "KipatPeerReader")
+        at(250, "own_upload_chunks_ok", "bytes=790", "KipatPeerReader")
         at(260, "peer_upload_completed", "bytes=790", "KipatPeerReader")
+        at(265, "finalize_ok", "", "KipatPeerReader")
+        at(266, "mutual_complete", "reason=finalize", "KipatPeerReader")
         at(270, "peer_profile_received", "down=820 up=790", "KipatAmbientNfc")
         at(275, "reveal_requested")
         at(330, "reveal_displayed")
+    }
+
+    @Test
+    fun initiatorHappyPathPassesEveryStageWithMeasuredTimes() {
+        initiatorHappyPath()
         val a = tracker.last()!!
         assertEquals(TapRoleSeen.INITIATOR, a.role)
         PilotStage.entries.forEach { assertEquals(it.name, StageResult.PASS, a.result(it)) }
         assertEquals(180L, a.elapsed(PilotStage.PEER_DOWNLOAD))
-        assertEquals(260L, a.elapsed(PilotStage.OWN_UPLOAD))
+        assertEquals(200L, a.elapsed(PilotStage.OWN_BEGIN))
+        assertEquals(250L, a.elapsed(PilotStage.OWN_CHUNKS))
+        assertEquals(260L, a.elapsed(PilotStage.OWN_COMMIT))
+        assertEquals(265L, a.elapsed(PilotStage.FINALIZE))
         assertEquals(330L, a.durationMs)
         assertNull(a.failureCode)
-        assertTrue(a.profileReceived && a.profileSent)
+        assertTrue(a.profileReceived && a.profileSent && a.mutual)
+        assertEquals("e-0a0b0c", a.correlation)
+    }
+
+    /** The responder's full ambient Kipat Tap, every Type 4 step included. */
+    private fun responderHappyPath() {
+        at(0, "hce_service_created", "cold=true since_process_ms=420 create_ms=35", "KipatHce")
+        at(1, "hce_first_apdu", "ms=2", "KipatHce")
+        at(2, "ndef_aid_selected", "v=2 ndef=112 session=x", "KipatType4")
+        at(4, "cc_file_selected", "", "KipatType4")
+        at(6, "cc_file_read", "bytes=15", "KipatType4")
+        at(8, "ndef_file_selected", "", "KipatType4")
+        at(10, "ndef_nlen_read", "bytes=110", "KipatType4")
+        at(12, "ndef_payload_read", "offset=2 bytes=110", "KipatType4")
+        at(13, "ndef_bootstrap_served", "bytes=110", "KipatType4")
+        at(60, "hce_custom_aid_selected", "session=x ambient=true", "KipatHce")
+        at(70, "peer_hello", "v=1 x=e-0a0b0c", "KipatPeerProtocol")
+        at(90, "peer_profile_chunk_read", "offset=0 bytes=240 of=820", "KipatPeerProtocol")
+        at(120, "peer_profile_chunk_read", "offset=240 bytes=240 of=820", "KipatPeerProtocol")
+        at(150, "peer_profile_chunk_read", "offset=720 bytes=100 of=820", "KipatPeerProtocol")
+        at(160, "peer_upload_started", "bytes=790", "KipatPeerProtocol")
+        at(240, "peer_upload_completed", "bytes=790", "KipatPeerProtocol")
+        at(245, "finalize_received", "uploaded=true", "KipatAmbientNfc")
+        at(246, "mutual_complete", "reason=finalize", "KipatAmbientNfc")
+        at(250, "responder_reveal_requested", "exchange=3", "KipatTapLaunch")
+        at(400, "background_launch_allowed", "exchange=3", "KipatTapLaunch")
     }
 
     @Test
-    fun responderHappyPathMapsServedAndReceivedProfiles() {
-        at(0, "type4_selected", "session=x ndef=112", "KipatType4")
-        at(10, "type4_selected", "session=x ndef=112", "KipatType4") // Android re-selects: same attempt
-        at(20, "bootstrap_read", "bytes=110", "KipatType4")
-        at(60, "kipat_aid_selected", "session=x ambient=true", "KipatHce")
-        at(70, "peer_hello", "v=1", "KipatPeerProtocol")
-        at(90, "peer_profile_chunk_read", "offset=0 bytes=240 of=820", "KipatPeerProtocol")
-        assertEquals("intermediate chunk is not a delivery", StageResult.NOT_REACHED, tracker.last()!!.result(PilotStage.OWN_UPLOAD))
-        at(150, "peer_profile_chunk_read", "offset=720 bytes=100 of=820", "KipatPeerProtocol")
-        at(240, "peer_upload_completed", "bytes=790", "KipatPeerProtocol")
-        at(250, "responder_reveal_requested", "exchange=3", "KipatTapLaunch")
-        at(400, "background_launch_allowed", "exchange=3", "KipatTapLaunch")
+    fun responderHappyPathRecordsEveryType4StepAndBothProfiles() {
+        responderHappyPath()
         assertEquals(1, tracker.attempts().size)
         val a = tracker.last()!!
         assertEquals(TapRoleSeen.RESPONDER, a.role)
         PilotStage.entries.forEach { assertEquals(it.name, StageResult.PASS, a.result(it)) }
-        assertEquals(150L, a.elapsed(PilotStage.OWN_UPLOAD))
-        assertEquals(240L, a.elapsed(PilotStage.PEER_DOWNLOAD))
+        // Measured from the NDEF SELECT (2 ms after the service started), the attempt's first event.
+        assertEquals(4L, a.elapsed(PilotStage.CC_FILE))
+        assertEquals(8L, a.elapsed(PilotStage.NDEF_FILE))
+        assertEquals(11L, a.elapsed(PilotStage.BOOTSTRAP))
+        assertEquals("dispatch is inferred from the Kipat AID SELECT", 58L, a.elapsed(PilotStage.DISPATCHED))
+        assertEquals(88L, a.elapsed(PilotStage.OWN_BEGIN))
+        assertEquals(148L, a.elapsed(PilotStage.OWN_CHUNKS))
+        assertEquals("they validated ours before uploading theirs", 158L, a.elapsed(PilotStage.OWN_COMMIT))
+        assertEquals(238L, a.elapsed(PilotStage.PEER_DOWNLOAD))
+        assertTrue(a.mutual)
+        assertEquals("intermediate chunks are not buffered", 0, tracker.events().count { it.detail.contains("offset=240") })
+    }
+
+    @Test
+    fun responderThatServedTheBootstrapButNeverSawTheKipatAidCannotKnowAboutDispatch() {
+        at(0, "ndef_aid_selected", "v=2 ndef=112", "KipatType4")
+        at(5, "cc_file_read", "bytes=15", "KipatType4")
+        at(9, "ndef_bootstrap_served", "bytes=110", "KipatType4")
+        val a = tracker.last()!!
+        assertEquals(StageResult.PASS, a.result(PilotStage.BOOTSTRAP))
+        assertEquals(StageResult.UNKNOWN, a.result(PilotStage.DISPATCHED))
+        assertEquals(StageResult.NOT_REACHED, a.result(PilotStage.KIPAT_AID))
+        assertFalse(a.mutual)
+    }
+
+    @Test
+    fun kipatTapRefusingTheNdefSelectIsANamedFailure() {
+        at(0, "type4_refused", "reason=no_public_profile", "KipatType4")
+        assertEquals("KIPAT_TAP_NO_PUBLIC_PROFILE", tracker.last()!!.failureCode)
+        assertEquals(StageResult.FAIL, tracker.last()!!.result(PilotStage.NDEF_AID))
+        mono += 60_000
+        tracker.onEvent("type4_refused", "reason=kipat_tap_disabled", "KipatType4")
+        assertEquals("KIPAT_TAP_DISABLED", tracker.last()!!.failureCode)
+        mono += 60_000
+        tracker.onEvent("type4_refused", "reason=device_locked", "KipatType4")
+        assertEquals("KIPAT_TAP_DEVICE_LOCKED", tracker.last()!!.failureCode)
     }
 
     @Test
@@ -117,15 +179,44 @@ class PilotDiagnosticsTest {
         at(40, "hce_aid_selected", "ok", "KipatPeerReader")
         at(60, "peer_hello", "v=1", "KipatPeerProtocol")
         at(180, "profile_download_complete", "bytes=820", "KipatPeerReader")
-        at(200, "peer_upload_started", "bytes=790", "KipatPeerReader")
+        at(200, "own_upload_begin_ok", "bytes=790", "KipatPeerReader")
         at(230, "peer_link_lost", "during_upload", "KipatPeerReader")
         val a = tracker.last()!!
         assertEquals(StageResult.PASS, a.result(PilotStage.PEER_DOWNLOAD))
-        assertEquals(StageResult.FAIL, a.result(PilotStage.OWN_UPLOAD))
-        assertEquals("OWN_UPLOAD_LINK_LOST", a.failureCode)
-        assertEquals(StageResult.NOT_REACHED, a.result(PilotStage.INTEGRITY))
-        assertEquals(StageResult.NOT_REACHED, a.result(PilotStage.REVEAL_REQUESTED))
-        assertEquals(StageResult.NOT_REACHED, a.result(PilotStage.REVEAL_DISPLAYED))
+        assertEquals(StageResult.PASS, a.result(PilotStage.OWN_BEGIN))
+        assertEquals(StageResult.FAIL, a.result(PilotStage.OWN_CHUNKS))
+        assertEquals("OWN_CHUNKS_LINK_LOST", a.failureCode)
+        listOf(PilotStage.OWN_COMMIT, PilotStage.FINALIZE, PilotStage.MUTUAL, PilotStage.REVEAL_REQUESTED, PilotStage.REVEAL_DISPLAYED)
+            .forEach { assertEquals(it.name, StageResult.NOT_REACHED, a.result(it)) }
+        assertFalse(a.mutual)
+    }
+
+    @Test
+    fun finalizeLostAfterACommittedUploadIsStillMutual() {
+        at(0, "ndef_dispatched")
+        at(180, "profile_download_complete", "bytes=820", "KipatPeerReader")
+        at(260, "peer_upload_completed", "bytes=790", "KipatPeerReader")
+        at(262, "finalize_lost", "", "KipatPeerReader")
+        at(263, "mutual_complete", "reason=commit_acked", "KipatPeerReader")
+        at(270, "reveal_requested")
+        val a = tracker.last()!!
+        assertEquals(StageResult.FAIL, a.result(PilotStage.FINALIZE))
+        assertTrue(a.mutual)
+        assertEquals(StageResult.PASS, a.result(PilotStage.REVEAL_REQUESTED))
+        assertEquals("the attempt is not closed by the finalize failure", null, a.finishedMonoMs)
+    }
+
+    @Test
+    fun responderLinkEndingAfterCommitIsNotALinkLossFailure() {
+        at(0, "hce_custom_aid_selected", "ambient=true", "KipatHce")
+        at(240, "peer_upload_completed", "bytes=790", "KipatPeerProtocol")
+        at(250, "peer_link_lost", "committed=true", "KipatHce")
+        at(251, "finalize_missing", "", "KipatAmbientNfc")
+        at(252, "mutual_complete", "reason=commit_then_link_end", "KipatAmbientNfc")
+        val a = tracker.last()!!
+        assertTrue(a.mutual)
+        assertEquals("FINALIZE_LINK_LOST", a.failureCode)
+        assertEquals(StageResult.PASS, a.result(PilotStage.PEER_DOWNLOAD))
     }
 
     @Test
@@ -138,7 +229,7 @@ class PilotDiagnosticsTest {
 
     @Test
     fun revealRequestedButNeverSeenIsUnknownNotPass() {
-        at(0, "type4_selected")
+        at(0, "ndef_aid_selected")
         at(250, "responder_reveal_requested")
         assertEquals(StageResult.UNKNOWN, tracker.last()!!.result(PilotStage.REVEAL_DISPLAYED))
         at(260, "background_launch_blocked", "exchange=1")
@@ -156,25 +247,36 @@ class PilotDiagnosticsTest {
         assertEquals(3, tracker.attempts().size)
     }
 
+    @Test
+    fun savedHistoryLoadedLateGoesFirstAndIdsStayUnique() {
+        val saved = PilotTracker(monoClock = { mono }, wallClock = { mono })
+        saved.onEvent("ndef_dispatched"); mono += 20_000; saved.onEvent("ndef_dispatched")
+        at(40_000, "ndef_aid_selected", "v=2", "KipatType4") // arrives before the file was read
+        tracker.prependSaved(saved.events(), saved.attempts())
+        assertEquals(listOf(1, 2, 3), tracker.attempts().map { it.id })
+        assertEquals(TapRoleSeen.RESPONDER, tracker.last()!!.role)
+        assertEquals("ndef_aid_selected", tracker.events().last().name)
+    }
+
     // ------------------------------------------------------------------ failure codes
 
     @Test
     fun failureCodesNameTheStageAndReason() {
-        assertEquals("INTEGRITY_HASH_MISMATCH", FailureCodes.of(PilotStage.INTEGRITY, "hash_mismatch"))
-        assertEquals("OWN_UPLOAD_LINK_LOST", FailureCodes.of(PilotStage.OWN_UPLOAD, "link_lost"))
+        assertEquals("PEER_DOWNLOAD_HASH_MISMATCH", FailureCodes.of(PilotStage.PEER_DOWNLOAD, "hash_mismatch"))
+        assertEquals("OWN_CHUNKS_LINK_LOST", FailureCodes.of(PilotStage.OWN_CHUNKS, "link_lost"))
         assertEquals("HELLO_UNKNOWN", FailureCodes.of(PilotStage.HELLO, null))
-        assertEquals(PilotStage.INTEGRITY, FailureCodes.stageForReason("hash_mismatch"))
-        assertEquals(PilotStage.INTEGRITY, FailureCodes.stageForReason("upload_incomplete"))
+        assertEquals(PilotStage.PEER_DOWNLOAD, FailureCodes.stageForReason("hash_mismatch"))
+        assertEquals(PilotStage.PEER_DOWNLOAD, FailureCodes.stageForReason("upload_incomplete"))
         assertEquals(PilotStage.HELLO, FailureCodes.stageForReason("unsupported_version"))
         assertEquals(PilotStage.BOOTSTRAP, FailureCodes.stageForReason("bad_bootstrap"))
         assertNull(FailureCodes.stageForReason("PROTOCOL"))
 
-        at(0, "type4_selected")
-        at(50, "kipat_aid_selected")
+        at(0, "ndef_aid_selected")
+        at(50, "hce_custom_aid_selected")
         at(60, "peer_hello")
         at(200, "peer_exchange_failed", "reason=hash_mismatch", "KipatPeerProtocol")
-        assertEquals("INTEGRITY_HASH_MISMATCH", tracker.last()!!.failureCode)
-        assertEquals(StageResult.FAIL, tracker.last()!!.result(PilotStage.INTEGRITY))
+        assertEquals("PEER_DOWNLOAD_HASH_MISMATCH", tracker.last()!!.failureCode)
+        assertEquals(StageResult.FAIL, tracker.last()!!.result(PilotStage.PEER_DOWNLOAD))
 
         mono += 60_000
         tracker.onEvent("ndef_dispatched")
@@ -193,19 +295,21 @@ class PilotDiagnosticsTest {
         at(181, "own_profile_upload_skipped", "reason=same_profile_id", "KipatPeerReader")
         val a = tracker.last()!!
         assertEquals("e-a81f92", a.correlation)
-        assertEquals("OWN_UPLOAD_SAME_PROFILE_ID", a.failureCode)
-        assertEquals(StageResult.FAIL, a.result(PilotStage.OWN_UPLOAD))
+        assertEquals("OWN_BEGIN_SAME_PROFILE_ID", a.failureCode)
+        assertEquals(StageResult.FAIL, a.result(PilotStage.OWN_BEGIN))
 
         mono += 60_000
-        tracker.onEvent("type4_selected")
+        tracker.onEvent("ndef_aid_selected")
         tracker.onEvent("responder_reveal_skipped", "reason=same_profile_id", "KipatTapLaunch")
         assertEquals("REVEAL_REQUESTED_SAME_PROFILE_ID", tracker.last()!!.failureCode)
 
-        mono += 60_000
-        tracker.onEvent("ndef_dispatched")
-        tracker.onEvent("profile_download_complete", "bytes=820", "KipatPeerReader")
-        tracker.onEvent("peer_upload_failed", "reason=commit_rejected", "KipatPeerReader")
-        assertEquals("OWN_UPLOAD_COMMIT_REJECTED", tracker.last()!!.failureCode)
+        listOf("begin_rejected" to "OWN_BEGIN_REJECTED", "write_rejected" to "OWN_CHUNKS_REJECTED", "commit_rejected" to "OWN_COMMIT_REJECTED").forEach { (reason, expected) ->
+            mono += 60_000
+            tracker.onEvent("ndef_dispatched")
+            tracker.onEvent("profile_download_complete", "bytes=820", "KipatPeerReader")
+            tracker.onEvent("peer_upload_failed", "reason=$reason", "KipatPeerReader")
+            assertEquals(expected, tracker.last()!!.failureCode)
+        }
         assertEquals("ids in hello are never kept", "v=1 x=e-a81f92", tracker.events().first { it.name == "peer_hello" }.detail.let { d -> d.split(' ').filter { it.startsWith("v=") || it.startsWith("x=") }.joinToString(" ") })
         assertFalse(tracker.events().any { it.detail.contains("presenter=") })
     }

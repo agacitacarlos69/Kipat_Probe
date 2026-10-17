@@ -77,9 +77,17 @@ class ManualPeerTestScreenTest {
                 "aid-filter" -> aids += xml.getAttributeValue(ns, "name")
             }
         }
-        assertEquals(listOf(com.kipat.probe.nfc.peer.KipatType4Tag.NDEF_AID_V2_HEX, KipatApduProtocol.AID_HEX), aids)
+        assertEquals(
+            listOf(com.kipat.probe.nfc.peer.KipatType4Tag.NDEF_AID_V2_HEX, com.kipat.probe.nfc.peer.KipatType4Tag.NDEF_AID_V1_HEX, KipatApduProtocol.AID_HEX),
+            aids,
+        )
         assertEquals("other", category)
         assertEquals("true", unlock)
+        // The pilot's HCE routing screen shows these as declared values: they must match the XML.
+        val routing = com.kipat.probe.pilot.HceRoutingCheck.check(context)
+        assertEquals("other (declared)", routing.category)
+        assertTrue(routing.unlockRequired)
+        assertEquals(listOf(routing.service), listOf(KipatHceService::class.java.simpleName))
     }
 
     @Test

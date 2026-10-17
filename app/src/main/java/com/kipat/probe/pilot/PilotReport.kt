@@ -83,6 +83,8 @@ data class PilotState(
     val installedAtMs: Long? = null,
     val updatedAtMs: Long? = null,
     val clearedAtMs: Long? = null,
+    /** Whether Android routes the NDEF and Kipat AIDs to Kipat on this phone. */
+    val routing: HceRouting? = null,
 )
 
 /**
@@ -113,6 +115,7 @@ object PilotReport {
         .put("startedAt", iso(a.startedWallMs))
         .put("failureCode", a.failureCode ?: JSONObject.NULL)
         .put("durationMs", a.durationMs ?: JSONObject.NULL)
+        .put("mutualExchange", a.mutual)
         .put("stages", JSONObject().apply {
             PilotStage.entries.forEach { s ->
                 put(s.code.lowercase(), JSONObject().put("result", a.result(s).name).put("elapsedMs", a.elapsed(s) ?: JSONObject.NULL))
@@ -143,6 +146,15 @@ object PilotReport {
             .put("enabled", state.device.nfcEnabled)
             .put("hce", state.device.hasHce)
             .put("kipatTap", state.device.kipatTap))
+        .put("hceRouting", state.routing?.let { r ->
+            JSONObject().put("service", r.service).put("serviceEnabled", r.serviceEnabled.name)
+                .put("ndefV2Aid", HceRoutingCheck.NDEF_V2).put("ndefV2Routed", r.ndefV2.name)
+                .put("ndefV1Aid", HceRoutingCheck.NDEF_V1).put("ndefV1Routed", r.ndefV1.name)
+                .put("kipatAid", HceRoutingCheck.KIPAT).put("kipatAidRouted", r.kipatAid.name)
+                .put("category", r.category).put("unlockRequired", r.unlockRequired)
+                .put("backgroundRestricted", r.backgroundRestricted.name).put("batteryUnrestricted", r.batteryUnrestricted.name)
+                .put("standbyBucket", r.standbyBucket)
+        } ?: JSONObject.NULL)
         .put("profile", state.profile?.let { JSONObject().put("pseudonym", it.pseudonym).put("reveal", it.reveal).put("accent", it.accent) } ?: JSONObject.NULL)
         .put("lastAttempt", state.last?.let(::attemptJson) ?: JSONObject.NULL)
         .put("attempts", JSONArray().apply { state.attempts.forEach { put(attemptJson(it)) } })
@@ -213,6 +225,10 @@ tester ticked in the checklist.
         appendLine("Device: ${state.device.manufacturer} ${state.device.model}, Android ${state.device.androidVersion} (API ${state.device.api})")
         appendLine("NFC: ${if (!state.device.hasNfc) "no hardware" else if (state.device.nfcEnabled) "enabled" else "disabled"}, HCE ${yn(state.device.hasHce)}")
         appendLine("Kipat Tap: ${state.device.kipatTap}")
+        state.routing?.let { r ->
+            appendLine("HCE routing: NDEF v2 ${r.ndefV2}, NDEF v1 ${r.ndefV1}, Kipat AID ${r.kipatAid}, service enabled ${r.serviceEnabled}")
+            appendLine("Background: restricted ${r.backgroundRestricted}, battery unrestricted ${r.batteryUnrestricted}, bucket ${r.standbyBucket}")
+        }
         appendLine()
         val a = state.last
         if (a == null) {
@@ -225,6 +241,7 @@ tester ticked in the checklist.
                 appendLine("${s.label} ${a.result(s).name.replace('_', ' ')}$t")
             }
             appendLine()
+            appendLine("Mutual exchange on this phone: ${if (a.mutual) "YES" else "NO"}")
             appendLine("Failure: ${a.failureCode ?: "none"}")
             a.durationMs?.let { appendLine("Duration: ${it}ms") }
         }

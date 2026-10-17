@@ -125,7 +125,7 @@ class KipatMutualExchangeTest {
         assertEquals("so it never sends Kyle back", UploadOutcome.SKIPPED_OWN_PROFILE, r.upload)
         assertTrue("Randy's phone never receives Kyle", phone2.reveals.isEmpty())
         assertTrue("and Kyle's phone shows 'your own profile', not Randy", phone1.reveals.isEmpty())
-        assertEquals("OWN_UPLOAD_SAME_PROFILE_ID", phone1.pilot.last()!!.failureCode)
+        assertEquals("OWN_BEGIN_SAME_PROFILE_ID", phone1.pilot.last()!!.failureCode)
         assertTrue(KipatIdentityStore.needsOwnProfileId(SampleData.identity))
     }
 
@@ -156,7 +156,7 @@ class KipatMutualExchangeTest {
         // Pilot diagnostics: every stage on both phones, and the same exchange id on both.
         val a1 = phone1.pilot.last()!!
         val a2 = phone2.pilot.last()!!
-        listOf(PilotStage.KIPAT_AID, PilotStage.HELLO, PilotStage.PEER_DOWNLOAD, PilotStage.OWN_UPLOAD, PilotStage.INTEGRITY, PilotStage.REVEAL_REQUESTED)
+        listOf(PilotStage.KIPAT_AID, PilotStage.HELLO, PilotStage.PEER_DOWNLOAD, PilotStage.OWN_BEGIN, PilotStage.OWN_CHUNKS, PilotStage.OWN_COMMIT, PilotStage.FINALIZE, PilotStage.MUTUAL, PilotStage.REVEAL_REQUESTED)
             .forEach { s ->
                 assertEquals("phone 1 $s", StageResult.PASS, a1.result(s))
                 assertEquals("phone 2 $s", StageResult.PASS, a2.result(s))
@@ -221,7 +221,7 @@ class KipatMutualExchangeTest {
         assertTrue(r.reverseTripIncomplete)
         assertTrue("but no one-sided Reveal on phone 1", phone1.reveals.isEmpty())
         assertTrue("and phone 2 never renders a partial Kyle", phone2.reveals.isEmpty())
-        assertEquals("OWN_UPLOAD_LINK_LOST", phone1.pilot.last()!!.failureCode)
+        assertEquals("OWN_CHUNKS_LINK_LOST", phone1.pilot.last()!!.failureCode)
         assertEquals(StageResult.PASS, phone1.pilot.last()!!.result(PilotStage.PEER_DOWNLOAD))
 
         // The phones are still together (or touched again): the retry completes the mutual exchange.

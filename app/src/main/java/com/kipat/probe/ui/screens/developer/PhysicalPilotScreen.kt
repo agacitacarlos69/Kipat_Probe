@@ -4,7 +4,9 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -34,7 +36,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.kipat.probe.pilot.HceRoutingCheck
 import com.kipat.probe.pilot.PilotCheck
+import com.kipat.probe.pilot.Tri
 import com.kipat.probe.pilot.PilotReport
 import com.kipat.probe.pilot.PilotStage
 import com.kipat.probe.pilot.PilotStore
@@ -130,27 +134,64 @@ fun PhysicalPilotScreen(onBack: () -> Unit, onCardTester: () -> Unit, onKipatCar
                 ActionRow("Accent", value = p.accent)
             }
 
+            state.routing?.let { r ->
+                SectionHeading("HCE routing")
+                ActionRow("Service", value = r.service)
+                KipatDivider()
+                ActionRow("Service enabled", value = r.serviceEnabled.name, valueColor = triColor(r.serviceEnabled))
+                KipatDivider()
+                ActionRow("NDEF v2 AID", supporting = HceRoutingCheck.NDEF_V2, value = r.ndefV2.name, valueColor = triColor(r.ndefV2))
+                KipatDivider()
+                ActionRow("NDEF v1 AID", supporting = HceRoutingCheck.NDEF_V1, value = r.ndefV1.name, valueColor = triColor(r.ndefV1))
+                KipatDivider()
+                ActionRow("Kipat AID", supporting = HceRoutingCheck.KIPAT, value = r.kipatAid.name, valueColor = triColor(r.kipatAid))
+                KipatDivider()
+                ActionRow("Category", value = r.category)
+                KipatDivider()
+                ActionRow("Device unlock required", value = if (r.unlockRequired) "Yes" else "No")
+                KipatDivider()
+                ActionRow("Background restricted", value = r.backgroundRestricted.name, valueColor = triColor(r.backgroundRestricted, good = Tri.NO))
+                KipatDivider()
+                ActionRow("Battery unrestricted", value = r.batteryUnrestricted.name)
+                KipatDivider()
+                ActionRow("Standby bucket", value = r.standbyBucket)
+                if (r.ndefV2 == Tri.NO) Note("Android will not send the other phone's NDEF check to Kipat here: another app or the system claims the AID, or Kipat is switched off under NFC settings. The other phone then shows an empty tag.")
+                if (HceRoutingCheck.isXiaomiFamily()) {
+                    Note("Xiaomi, Redmi and POCO: Kipat must be allowed to start in the background, or this phone can't answer a tap while Kipat is closed. In App settings turn on Autostart and set Battery saver to No restrictions. If NFC settings offer a Secure element position, choose HCE wallet.")
+                    ActionRow("Open Kipat app settings", chevron = true, onClick = { openAppSettings(context) })
+                }
+            }
+
             SectionHeading("Last Kipat Tap")
             if (last == null) {
                 Note("No Kipat Tap recorded yet. Touch the two phones together, then come back here.")
             } else {
                 ActionRow("Role", value = last.role.label)
+                KipatDivider()
+                ActionRow(
+                    "Mutual exchange on this phone",
+                    value = if (last.mutual) "Complete" else "Not complete",
+                    valueColor = if (last.mutual) Kipat.colors.verified else Kipat.colors.revoked,
+                )
                 last.correlation?.let {
                     KipatDivider()
                     ActionRow("Exchange", value = it)
                 }
-                PilotStage.entries.forEach { s ->
-                    KipatDivider()
-                    val r = last.result(s)
-                    ActionRow(
-                        s.label,
-                        value = r.name.replace('_', ' ') + (last.elapsed(s)?.let { "  ${it} ms" }.orEmpty()),
-                        valueColor = when (r) {
-                            StageResult.PASS -> Kipat.colors.verified
-                            StageResult.FAIL -> Kipat.colors.revoked
-                            else -> Kipat.colors.textSecondary
-                        },
-                    )
+                PilotStage.entries.groupBy { it.group }.forEach { (group, stages) ->
+                    SectionHeading(group)
+                    stages.forEachIndexed { i, s ->
+                        if (i > 0) KipatDivider()
+                        val r = last.result(s)
+                        ActionRow(
+                            s.label,
+                            value = r.name.replace('_', ' ') + (last.elapsed(s)?.let { "  ${it} ms" }.orEmpty()),
+                            valueColor = when (r) {
+                                StageResult.PASS -> Kipat.colors.verified
+                                StageResult.FAIL -> Kipat.colors.revoked
+                                else -> Kipat.colors.textSecondary
+                            },
+                        )
+                    }
                 }
                 last.failureCode?.let {
                     KipatDivider()
@@ -177,7 +218,7 @@ fun PhysicalPilotScreen(onBack: () -> Unit, onCardTester: () -> Unit, onKipatCar
                 KipatDivider()
                 ActionRow("Reveal", value = peer.reveal)
                 KipatDivider()
-                ActionRow("Integrity", value = when (last.result(PilotStage.INTEGRITY)) { StageResult.PASS -> "Passed"; StageResult.FAIL -> "Failed"; else -> "Not reached" })
+                ActionRow("Mutual exchange", value = if (last.mutual) "Complete" else "Not complete")
                 KipatDivider()
                 ActionRow("Returned to previous app", value = "Check by eye")
                 KipatDivider()
@@ -207,9 +248,10 @@ fun PhysicalPilotScreen(onBack: () -> Unit, onCardTester: () -> Unit, onKipatCar
 
             SectionHeading("How to test two phones")
             Steps(
-                "Phone A" to listOf("Install the same Kipat Pilot APK as phone B.", "Open Kipat once.", "Create profile A (Profile, then Edit profile).", "Turn on Kipat Tap (Profile).", "Open Chrome."),
-                "Phone B" to listOf("Install the same APK.", "Create profile B.", "Turn on Kipat Tap.", "Open Settings."),
-                "Then" to listOf("Unlock both phones, NFC on.", "Check both show the same commit above.", "Touch the backs together and hold still for a second.", "Expected: A shows B's Reveal and B shows A's Reveal. Nobody presses anything after the touch.", "Come back here on each phone and export the diagnostic."),
+                "Both phones first" to listOf("Install the same Kipat Pilot APK.", "Check both show the same commit above.", "HCE routing above: NDEF v2 AID and Kipat AID should say YES.", "Xiaomi, Redmi, POCO: allow Autostart for Kipat (Open Kipat app settings).", "Clear results."),
+                "Phone 1" to listOf("Profile Kyle Jimenez, Reveal Precision Orbit, accent Cobalt.", "Turn on Kipat Tap.", "Leave Kipat and open Chrome."),
+                "Phone 2" to listOf("Profile Randy Orton, Reveal Contact Ripple, accent Amber.", "Turn on Kipat Tap.", "Leave Kipat and open Settings."),
+                "Then" to listOf("Unlock both phones, NFC on.", "Hold the backs together and keep them together until the Reveals appear.", "Expected: phone 1 shows Randy, phone 2 shows Kyle. Nobody presses anything.", "Android's own New tag or Empty tag screen is a FAIL.", "Come back here on each phone and export the diagnostic."),
             )
 
             SectionHeading("Card test")
@@ -265,6 +307,22 @@ private fun Steps(vararg groups: Pair<String, List<String>>) {
 }
 
 private fun yesNo(b: Boolean) = if (b) "Yes" else "No"
+
+@Composable
+private fun triColor(t: Tri, good: Tri = Tri.YES) = when (t) {
+    Tri.UNKNOWN -> Kipat.colors.textSecondary
+    good -> Kipat.colors.verified
+    else -> Kipat.colors.revoked
+}
+
+private fun openAppSettings(context: Context) {
+    runCatching {
+        context.startActivity(
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }
+}
 
 /** Writes the ZIP to cache/pilot/ and opens the system share sheet. Nothing leaves the phone otherwise. */
 internal fun exportDiagnostic(context: Context) {

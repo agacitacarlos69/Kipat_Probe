@@ -48,15 +48,21 @@ object PilotStore {
     val build: BuildMetadata
         get() = BuildMetadata(BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE, BuildConfig.BUILD_NUMBER, BuildConfig.GIT_SHA, BuildConfig.BUILD_TIME, BuildConfig.BUILD_TYPE)
 
-    /** Called from KipatPeerSessions.attach (service, app, Reveal). Loads the saved snapshot once. */
+    /**
+     * Called from KipatPeerSessions.attach (service, app, Reveal). Loads the saved snapshot once, on
+     * the pilot thread: the HCE service's cold start (and its first NDEF answer) never waits on it.
+     */
     @Synchronized
     fun attach(context: Context) {
         val appContext = context.applicationContext
         app = WeakReference(appContext)
         if (loaded) return
         loaded = true
-        runCatching { File(appContext.filesDir, FILE).takeIf { it.exists() }?.readText()?.let(::decode) }
-            .onFailure { Log.w(TAG, "pilot snapshot unreadable, starting fresh") }
+        io.execute {
+            runCatching { File(appContext.filesDir, FILE).takeIf { it.exists() }?.readText()?.let { decode(it, merge = true) } }
+                .onFailure { Log.w(TAG, "pilot snapshot unreadable, starting fresh") }
+            _version.value = _version.value + 1
+        }
     }
 
     /** Every structured NFC log event comes through here (content-free; redacted again by the tracker). */
@@ -123,6 +129,7 @@ object PilotStore {
         return PilotState(
             build, device, profile, tracker.last(), tracker.attempts(), tracker.events(), peer, connectionStored(), card, checklist(context),
             installedAtMs = pkg?.firstInstallTime, updatedAtMs = pkg?.lastUpdateTime, clearedAtMs = cleared,
+            routing = runCatching { HceRoutingCheck.check(context) }.getOrNull(),
         )
     }
 
@@ -131,8 +138,9 @@ object PilotStore {
     private fun changed() {
         _version.value = _version.value + 1
         val context = app?.get() ?: return
-        val text = encode()
+        // Serialized on the pilot thread, after the saved history was merged (same single thread).
         io.execute {
+            val text = encode()
             runCatching {
                 val dir = context.filesDir
                 val tmp = File(dir, "$FILE.tmp")
@@ -150,11 +158,12 @@ object PilotStore {
         .put("card", card?.let { c -> JSONObject().put("action", c.action).put("technologies", c.technologies).put("ndef", c.ndefType ?: JSONObject.NULL).put("capacity", c.capacityBytes ?: JSONObject.NULL).put("writable", c.writable ?: JSONObject.NULL).put("bytes", c.messageBytes ?: JSONObject.NULL).put("result", c.result).put("at", c.atWallMs) } ?: JSONObject.NULL)
         .toString()
 
-    internal fun decode(text: String) {
+    internal fun decode(text: String, merge: Boolean = false) {
         val o = JSONObject(text)
         val events = o.optJSONArray("events")?.let { a -> (0 until a.length()).map { i -> a.getJSONObject(i) }.map { e -> PilotEvent(e.getLong("wall"), e.getString("name"), e.getString("result"), e.optLong("elapsed", -1).takeIf { it >= 0 }, e.optString("detail")) } }.orEmpty()
         val attempts = o.optJSONArray("attempts")?.let { a -> (0 until a.length()).mapNotNull { i -> runCatching { attemptFromJson(a.getJSONObject(i)) }.getOrNull() } }.orEmpty()
-        tracker.restore(events, attempts)
+        if (merge) tracker.prependSaved(events, attempts) else tracker.restore(events, attempts)
+        if (merge && peer != null) return // something newer already arrived in this process
         peer = o.optJSONObject("peer")?.let { PeerSeen(it.getString("name"), it.getString("idHash"), it.getString("reveal"), it.getString("accent"), it.getLong("at")) }
         peerKey = o.optString("peerKey").takeIf { it.isNotBlank() && it != "null" }
         card = o.optJSONObject("card")?.let { c ->
