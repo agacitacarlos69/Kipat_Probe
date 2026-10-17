@@ -25,6 +25,13 @@ data class Connection(
     val revealTemplate: RevealTemplateId = RevealTemplateId.DEFAULT,
     val revealTheme: RevealTheme = RevealTheme.NIGHT,
     val isDemo: Boolean = true,
+    /** Third context line from their public profile (e.g. "Developer"), when they publish one. */
+    val role: String? = null,
+    val avatarUrl: String? = null,
+    /** Their public profile revision when this snapshot was taken; null when the transport didn't carry one. */
+    val profileRevision: Long? = null,
+    /** Last time a Kipat encounter (tap, card, link) showed this person again; null = only at connect. */
+    val lastSeenAtMillis: Long? = null,
 )
 
 enum class ConnectionSort(val label: String) { RECENT("Recent"), ALPHABETICAL("A–Z") }

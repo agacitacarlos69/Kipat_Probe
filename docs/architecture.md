@@ -58,14 +58,30 @@ on one phone; a backend resolver is the documented next step
 
 ## State
 
-`KipatRepository` exposes `StateFlow`s (identity, profile revision, card, entitlement, connections,
-recent taps, Reveal timings). The identity and linked cards are persisted to app-private JSON files.
-Connections and taps are still in memory. Screens collect with `collectAsStateWithLifecycle`. Only Edit profile uses a
-`ViewModel` (the editable draft must survive configuration changes). Everything is in memory —
-persistence (Room/DataStore) and a backend are the planned replacements behind the same object.
+`KipatRepository` exposes `StateFlow`s: identity, profile revision, card, entitlement, connections,
+recent taps and Reveal timings. Screens collect them with `collectAsStateWithLifecycle`. Only Edit
+profile uses a `ViewModel`, because the editable draft must survive configuration changes.
 
-**Taps vs connections:** every NFC/deep-link Reveal records a `RecentTap`; a `Connection` is only
-created by the explicit *Connect* action.
+**Persistence is local-first and needs no backend.**
+- **Identity:** atomic JSON (`KipatIdentityStore`).
+- **Linked cards:** atomic JSON (`KipatCards`).
+- **Connections and recent taps:** Room, in `kipat.db` (`KipatLocalStore`, schema in `app/schemas/`).
+  - The repository stays the synchronous source the UI and the Reveal read.
+  - At process start, the store loads the rows into it before any screen, card tap or Kipat Tap
+    delivery reads them.
+  - Every change is then written through on one ordered background thread.
+- **Sample data:** never written to disk. Debug builds show it in memory next to real rows; release
+  builds start empty.
+
+**Taps vs connections** (`ConnectionRules`):
+- Every NFC or link Reveal records a `RecentTap`. A `Connection` is created only by the explicit
+  *Connect* action.
+- There is one Connection per public identity id, so a phone tap, a linked card and a link all reach
+  the same row.
+- A later encounter refreshes `lastSeenAt`. Only a live profile (their phone, their linked card) that
+  is not older than the stored one refreshes the public snapshot. The local id, `connectedAt`, the
+  pin and the source are never changed by a refresh.
+- A removed Connection is never recreated by an encounter.
 
 ## Design system
 

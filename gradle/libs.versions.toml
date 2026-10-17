@@ -12,6 +12,9 @@ lifecycle = "2.10.0"
 robolectric = "4.16.1"
 zxing = "3.5.3"
 androidxTestCore = "1.7.0"
+# Local persistence (Connections, recent taps). KSP 2.3+ is decoupled from the Kotlin version and supports AGP 9 built-in Kotlin.
+room = "2.8.5"
+ksp = "2.3.12"
 
 [libraries]
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -37,7 +40,11 @@ androidx-test-core = { group = "androidx.test", name = "core-ktx", version.ref =
 compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
+room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

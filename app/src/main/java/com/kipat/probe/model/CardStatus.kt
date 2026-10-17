@@ -31,4 +31,6 @@ data class RecentTap(
     val atMillis: Long,
     val savedAsConnection: Boolean,
     val isDemo: Boolean,
+    /** How this encounter happened (phone tap, card, link); kept so a later Connect remembers it. */
+    val source: ConnectionSource = ConnectionSource.NFC_CARD,
 )

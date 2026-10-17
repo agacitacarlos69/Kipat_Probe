@@ -23,7 +23,7 @@ migrated, not discarded.
 | Share screen (QR, copy link, system share, card state) | Working; links point to kipat.app, which has **no web profile yet** |
 | Save contact | Working — one tap into Android Contacts (ACTION_INSERT), no .vcf |
 | Prototype NTAG writer | Profile → Developer tools; **not yet re-tested on hardware** after migration |
-| Connections, taps | **Local demo data, in memory**. Resets when the process dies. |
+| Connections, recent taps | **Persisted on the phone** (Room, offline). Connect, pin and remove survive restarts; one Connection per person across phone tap, card and link. Debug builds also show sample data (never saved) |
 | Profile, Reveal style, linked cards | Persisted on the phone (app-private JSON, atomic writes); one canonical identity with a revision |
 | Authenticity / verification | **Not implemented.** Sample data shows "Verified · demo"; tag-supplied names show "Unverified" |
 | Self-contained NFC test profile cards | Implemented (Developer tools → NFC full profile test); **not yet tested on hardware** |

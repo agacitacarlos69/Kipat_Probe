@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Handler
 import android.os.Looper
+import com.kipat.probe.data.KipatLocalStore
 import com.kipat.probe.data.KipatRepository
 import com.kipat.probe.data.NfcProfileReveal.toRevealPayload
 import com.kipat.probe.nfc.peer.KipatApduProtocol.shortId
@@ -36,6 +37,8 @@ object KipatTapLauncher {
             log.event(PeerLog.TAG_LAUNCH, "responder_reveal_skipped", "reason=own_profile")
             return
         }
+        // The responder may run with no UI ever opened in this process: load Connections first.
+        KipatLocalStore.init(context)
         val delivery = KipatPeerSessions.deliveries.offer(peer, TapRole.RESPONDER) ?: run {
             log.event(PeerLog.TAG_LAUNCH, "duplicate_exchange_ignored", "role=responder session=${presenter.shortId()}")
             return

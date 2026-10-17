@@ -20,6 +20,7 @@ import com.kipat.probe.cards.KipatCardResolver
 import com.kipat.probe.cards.KipatCards
 import com.kipat.probe.cards.LinkedCardReveal
 import com.kipat.probe.data.KipatIdentityStore
+import com.kipat.probe.data.KipatLocalStore
 import com.kipat.probe.data.KipatRepository
 import com.kipat.probe.data.NfcProfileReveal
 import com.kipat.probe.data.RevealResolver
@@ -82,6 +83,8 @@ class TapExperienceActivity : ComponentActivity() {
     private var pending by mutableStateOf<TapPending?>(null)
     private var initiator: KipatTapInitiator? = null
     private val cardResolver: KipatCardResolver by lazy { KipatCards.resolver(this) }
+    /** Public profile revision of the shown payload when its transport reported one (linked cards). */
+    private var payloadRevision: Long? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         trace = RevealTrace(intent?.getLongExtra(RevealLauncher.EXTRA_LAUNCH_UPTIME, -1L)?.takeIf { it > 0 })
@@ -92,6 +95,7 @@ class TapExperienceActivity : ComponentActivity() {
         )
         super.onCreate(savedInstanceState)
         KipatIdentityStore.init(this) // a card tap may start a fresh process: same identity as the app
+        KipatLocalStore.init(this) // ...and the same Connections, so a known person shows as Connected
         KipatPeerSessions.attach(this)
         markDelivered(intent)
 
@@ -163,6 +167,7 @@ class TapExperienceActivity : ComponentActivity() {
         }
         rememberTap(next)
         payload = next
+        payloadRevision = null
         connected = KipatRepository.isConnected(next.cardId)
         if (!hasTrustedPayload(intent)) KipatRepository.recordTap(next)
         trace = RevealTrace(intent.getLongExtra(RevealLauncher.EXTRA_LAUNCH_UPTIME, -1L).takeIf { it > 0 })
@@ -213,6 +218,7 @@ class TapExperienceActivity : ComponentActivity() {
         KipatPeerSessions.deliveries.markShown(delivery.exchangeId)
         KipatPeerSessions.recordReceiverDiagnostics(result)
         val next = KipatTapLauncher.payloadFor(peer)
+        payloadRevision = null
         KipatRepository.recordTap(next)
         rememberTap(next)
         payload = next
@@ -256,7 +262,9 @@ class TapExperienceActivity : ComponentActivity() {
         payload = next
         connected = KipatRepository.isConnected(next.cardId)
         // Only a resolved profile is someone you met; a turned-off or unknown card is not recorded.
-        if (record && resolution is CardResolution.Resolved) KipatRepository.recordTap(next)
+        // A resolved linked card is their live profile: it may refresh an existing Connection's snapshot.
+        if (record && resolution is CardResolution.Resolved) KipatRepository.recordTap(next, live = true, revision = resolution.revision)
+        payloadRevision = (resolution as? CardResolution.Resolved)?.revision
         debouncer.accept(resolution.cardId, SystemClock.elapsedRealtime())
         if (restart) runKey++
     }
@@ -360,7 +368,7 @@ class TapExperienceActivity : ComponentActivity() {
             return
         }
         if (payload.canConnect && !connected) {
-            KipatRepository.connect(payload)
+            KipatRepository.connect(payload, payloadRevision)
             connected = true
             KipatHaptics.connect(window.decorView)
         }

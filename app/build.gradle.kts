@@ -3,6 +3,7 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -80,6 +81,10 @@ dependencies {
     debugImplementation(libs.compose.ui.tooling)
     // QR encoding for the Share screen (pure Java, no UI).
     implementation(libs.zxing.core)
+    // Local-first persistence for Connections and recent taps (works offline, survives restarts).
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    ksp(libs.room.compiler)
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
@@ -89,6 +94,12 @@ dependencies {
     debugImplementation(libs.compose.ui.test.manifest)
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(libs.ext.junit)
+}
+
+// Room schema history (committed) so future migrations can be written and tested.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+    arg("room.generateKotlin", "true")
 }
 
 // `./gradlew :app:testDebugUnitTest -Pkipat.screenshots=true` writes smoke-test PNGs for review.
