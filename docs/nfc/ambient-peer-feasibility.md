@@ -3,7 +3,13 @@
 Question: can two unlocked Android phones, **neither showing Kipat**, touch and both show the
 other person's Kipat Reveal, using only public Android APIs?
 
-Short answer: **PARTIAL, pending hardware.** Every individual step is supported by public APIs
+> **Status 2026-10-17: EXPERIMENTAL / UNVERIFIED, failing on the only tested device pair.** Two
+> Xiaomi phones (Android 12 and 15), pilots 1 to 3: every ambient touch ended in Android's own
+> "New tag collected / Empty tag" screen and Kipat never launched. See
+> [the decision gate](../device-validation/NFC-FEASIBILITY-DECISION.md). The analysis below is the
+> original desk study; it is not evidence that the chain works.
+
+Short answer (desk study, 2026-10-14): **PARTIAL, pending hardware.** Every individual step is supported by public APIs
 and by the current AOSP NFC stack, and the design below uses only those steps. Whether two real
 phones complete the whole chain — which one polls, OEM NFC stacks, Activity-launch latency
 inside one RF contact — can only be proven on two physical devices. Nothing here has been run
