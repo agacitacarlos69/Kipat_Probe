@@ -53,6 +53,13 @@ Optional: `-Pkipat.screenshots=true` writes smoke-test PNGs to
 Installable APKs are attached to [GitHub Releases](https://github.com/agacitacarlos69/Kipat_Probe/releases).
 On the phone: download the `.apk`, open it and allow "Install unknown apps" for the browser.
 
+**Physical pilot (no laptop):** every code push to `main` runs
+[`.github/workflows/pilot-apk.yml`](.github/workflows/pilot-apk.yml). It runs the tests and lint,
+then publishes a signed "Kipat Pilot" **pre-release** with the APK and its SHA-256. Install the
+same APK on both phones, check the commit in Developer tools → Developer info, and test from
+Developer tools → Physical pilot. See
+[docs/device-validation/PILOT_DISTRIBUTION.md](docs/device-validation/PILOT_DISTRIBUTION.md).
+
 Signed release build locally:
 
 ```bash

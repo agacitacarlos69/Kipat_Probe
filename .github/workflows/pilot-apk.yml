@@ -1,0 +1,192 @@
+# Builds the Kipat physical-pilot APK in the cloud and publishes it as a GitHub PRE-RELEASE
+# ("Kipat Pilot N"), so two Android phones can install it directly. No laptop needed.
+#
+# Trigger: every push to main (code changes), or run manually from the Actions tab.
+#
+# Signing: the SAME release key as release.yml, so every pilot APK installs as an update over the
+# previous one (and over v0.2.0) and keeps the Room database, Connections, profile and settings.
+# This workflow never generates a key. If the secrets are missing it fails and says what to set:
+#   KIPAT_KEYSTORE_BASE64   base64 of kipat-release.jks
+#   KIPAT_KEYSTORE_PASSWORD
+#   KIPAT_KEY_ALIAS
+#   KIPAT_KEY_PASSWORD
+# One-time setup: docs/device-validation/PILOT_DISTRIBUTION.md
+name: Pilot APK
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "design/**"
+      - "**/*.md"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pilot-apk
+  cancel-in-progress: false
+
+jobs:
+  pilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      KIPAT_BUILD_NUMBER: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build identity
+        run: |
+          echo "KIPAT_GIT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          echo "KIPAT_BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
+      - name: Check signing secrets
+        env:
+          KIPAT_KEYSTORE_BASE64: ${{ secrets.KIPAT_KEYSTORE_BASE64 }}
+          KIPAT_KEYSTORE_PASSWORD: ${{ secrets.KIPAT_KEYSTORE_PASSWORD }}
+          KIPAT_KEY_ALIAS: ${{ secrets.KIPAT_KEY_ALIAS }}
+          KIPAT_KEY_PASSWORD: ${{ secrets.KIPAT_KEY_PASSWORD }}
+        run: |
+          missing=""
+          for s in KIPAT_KEYSTORE_BASE64 KIPAT_KEYSTORE_PASSWORD KIPAT_KEY_ALIAS KIPAT_KEY_PASSWORD; do
+            [ -n "${!s}" ] || missing="$missing $s"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Stable pilot signing is not configured. Missing repository secrets:$missing. See docs/device-validation/PILOT_DISTRIBUTION.md (one-time setup). No APK is published with a throwaway key."
+            exit 1
+          fi
+          echo "$KIPAT_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/kipat-release.jks"
+          echo "KIPAT_KEYSTORE_FILE=$RUNNER_TEMP/kipat-release.jks" >> "$GITHUB_ENV"
+
+      - name: Unit tests, lint, debug and pilot APKs
+        env:
+          KIPAT_KEYSTORE_PASSWORD: ${{ secrets.KIPAT_KEYSTORE_PASSWORD }}
+          KIPAT_KEY_ALIAS: ${{ secrets.KIPAT_KEY_ALIAS }}
+          KIPAT_KEY_PASSWORD: ${{ secrets.KIPAT_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assemblePilot --no-configuration-cache
+
+      - name: Test summary
+        if: always()
+        run: |
+          python3 - <<'EOF' | tee -a "$GITHUB_STEP_SUMMARY" > test-summary.md
+          import glob, re
+          t = f = s = 0
+          bad = []
+          for p in sorted(glob.glob("app/build/test-results/testDebugUnitTest/*.xml")):
+              x = open(p, encoding="utf-8").read()
+              m = re.search(r'tests="(\d+)" skipped="(\d+)" failures="(\d+)" errors="(\d+)"', x)
+              if not m:
+                  continue
+              t += int(m[1]); s += int(m[2]); f += int(m[3]) + int(m[4])
+              bad += [c[1] for c in re.finditer(r'<testcase name="([^"]+)"[^>]*>\s*<(?:failure|error)', x)]
+          print("### Unit tests")
+          print(f"{t} tests, {t - f - s} passed, {f} failed, {s} skipped")
+          for b in bad:
+              print(f"- FAILED {b}")
+          EOF
+
+      - name: Verify signature and package
+        id: pkg
+        run: |
+          APK=app/build/outputs/apk/pilot/app-pilot.apk
+          if [ ! -f "$APK" ]; then
+            echo "::error::Signed pilot APK missing (an unsigned build means the release key was not applied)."
+            ls -la app/build/outputs/apk/pilot || true
+            exit 1
+          fi
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs "$APK" | tee signer.txt
+          CERT=$(grep -m1 'certificate SHA-256 digest' signer.txt | awk '{print $NF}')
+          VERSION=$(grep -m1 -o 'versionName="[^"]*"' <("$(dirname "$APKSIGNER")/aapt2" dump badging "$APK") | cut -d'"' -f2 || true)
+          [ -n "$VERSION" ] || VERSION="0.2.1-pilot.${KIPAT_BUILD_NUMBER}"
+          mkdir -p dist
+          NAME="KipatPilot-${VERSION}-${KIPAT_GIT_SHA}.apk"
+          cp "$APK" "dist/$NAME"
+          (cd dist && sha256sum "$NAME" > "$NAME.sha256")
+          SHA256=$(cut -d' ' -f1 "dist/$NAME.sha256")
+          cat > dist/build-info.json <<EOF
+          {
+            "app": "Kipat Pilot",
+            "versionName": "$VERSION",
+            "versionCode": $((100 + KIPAT_BUILD_NUMBER)),
+            "buildNumber": $KIPAT_BUILD_NUMBER,
+            "gitSha": "$GITHUB_SHA",
+            "shortSha": "$KIPAT_GIT_SHA",
+            "buildTime": "$KIPAT_BUILD_TIME",
+            "buildType": "pilot",
+            "apk": "$NAME",
+            "apkSha256": "$SHA256",
+            "signingCertSha256": "$CERT"
+          }
+          EOF
+          cp test-summary.md dist/test-summary.md
+          {
+            echo "name=$NAME"; echo "version=$VERSION"; echo "sha256=$SHA256"; echo "cert=$CERT"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### Pilot APK"
+            echo "- APK: \`$NAME\`"
+            echo "- SHA-256: \`$SHA256\`"
+            echo "- Signing certificate SHA-256: \`$CERT\`"
+            echo "- Commit: \`$GITHUB_SHA\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KipatPilot-${{ steps.pkg.outputs.version }}-${{ env.KIPAT_GIT_SHA }}
+          path: dist/*
+          retention-days: 30
+
+      - name: Release notes
+        run: |
+          cat > release-notes.md <<EOF
+          **Pilot build for the physical two-phone Kipat Tap test. Not a production release.**
+
+          | | |
+          |---|---|
+          | APK | \`${{ steps.pkg.outputs.name }}\` |
+          | Version | ${{ steps.pkg.outputs.version }} (build ${KIPAT_BUILD_NUMBER}) |
+          | Commit | \`${KIPAT_GIT_SHA}\` (${GITHUB_SHA}) |
+          | Built | ${KIPAT_BUILD_TIME} |
+          | APK SHA-256 | \`${{ steps.pkg.outputs.sha256 }}\` |
+          | Signing certificate SHA-256 | \`${{ steps.pkg.outputs.cert }}\` |
+
+          ### Install on both phones
+          1. On each phone, open this page and download the **same** \`.apk\` below.
+          2. Open it and allow "Install unknown apps" for your browser or Files app when asked.
+          3. Open Kipat, go to Profile, Developer tools and check that **Developer info** shows commit \`${KIPAT_GIT_SHA}\` on both phones.
+          4. Open **Physical pilot** and follow "How to test two phones".
+          5. After the test, tap **Export diagnostic** on each phone and upload both ZIP files to Claude.
+
+          If Android says the app is not compatible or a package conflicts, a Kipat build signed with a different key is installed: uninstall it first (this removes its local data).
+
+          Full guide: docs/device-validation/PILOT_DISTRIBUTION.md
+
+          $(cat test-summary.md)
+          EOF
+
+      - name: Publish pilot pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: pilot-${{ github.run_number }}
+          name: Kipat Pilot ${{ steps.pkg.outputs.version }} (${{ env.KIPAT_GIT_SHA }})
+          target_commitish: ${{ github.sha }}
+          prerelease: true
+          make_latest: false
+          body_path: release-notes.md
+          files: |
+            dist/*.apk
+            dist/*.sha256
+            dist/build-info.json

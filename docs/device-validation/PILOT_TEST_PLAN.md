@@ -17,8 +17,9 @@ Keep videos out of git.
 |---|---|
 | Phone A, Phone B | Android with NFC, ideally two different brands. Record the model, Android version and OEM skin |
 | One writable NFC card | NTAG215 (or 213/216), blank or erasable |
-| Build | The same debug APK on both phones: `./gradlew :app:assembleDebug`, then `adb install -r app/build/outputs/apk/debug/app-debug.apk` |
-| Logs (optional, recommended) | `adb logcat -s KipatReveal KipatAmbient KipatCards KipatIdentity KipatLocalStore` per phone |
+| Build | The **same cloud-built Pilot APK** on both phones, downloaded from the "Kipat Pilot" pre-release. No laptop needed: see [PILOT_DISTRIBUTION.md](PILOT_DISTRIBUTION.md). Check that both phones show the same commit in Developer tools → Developer info |
+| Diagnostics | Developer tools → Physical pilot → **Export diagnostic** on each phone, after each round |
+| Logs (advanced fallback only) | `adb logcat -s KipatReveal KipatAmbientNfc KipatCards KipatIdentity KipatLocalStore KipatPilot` per phone |
 
 ## 0. Setup (both phones)
 
@@ -29,7 +30,8 @@ Keep videos out of git.
    Note both accents.
 4. Profile → Kipat Tap → On (accept the one-time disclosure).
 5. NFC on, screen unlocked, a case is fine (note it).
-6. Debug builds show "Sample data" connections. Note how many **real** (non-sample) Connections exist before you start: expect 0.
+6. Pilot builds show no sample data. Note how many Connections exist before you start: expect 0 on a fresh install.
+7. Developer tools → Physical pilot → **Clear results**, so the diagnostic covers only this round.
 
 ## 1. Phone to phone (Kipat Tap)
 
