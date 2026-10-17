@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only the pilot diagnostic export folder is shareable (Developer tools → Physical pilot). -->
+<paths>
+    <cache-path name="pilot" path="pilot/" />
+</paths>

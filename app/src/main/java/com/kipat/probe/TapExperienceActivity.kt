@@ -21,6 +21,7 @@ import com.kipat.probe.cards.KipatCards
 import com.kipat.probe.cards.LinkedCardReveal
 import com.kipat.probe.data.KipatIdentityStore
 import com.kipat.probe.data.KipatLocalStore
+import com.kipat.probe.pilot.PilotStore
 import com.kipat.probe.data.KipatRepository
 import com.kipat.probe.data.NfcProfileReveal
 import com.kipat.probe.data.RevealResolver
@@ -195,6 +196,7 @@ class TapExperienceActivity : ComponentActivity() {
 
     private fun startKipatTap(intent: Intent, bootstrap: KipatPeerBootstrap.Result) {
         Log.i(PeerLog.TAG_AMBIENT, "ndef_dispatched since_create_ms=0")
+        PilotStore.record("ndef_dispatched")
         val showingReveal = pending == null && payload.source == RevealSource.PEER_NFC
         val tap = initiator ?: KipatTapInitiator(
             activity = this,
@@ -219,6 +221,8 @@ class TapExperienceActivity : ComponentActivity() {
         KipatPeerSessions.recordReceiverDiagnostics(result)
         val next = KipatTapLauncher.payloadFor(peer)
         payloadRevision = null
+        PilotStore.peerSeen(next)
+        PilotStore.record("reveal_requested")
         KipatRepository.recordTap(next)
         rememberTap(next)
         payload = next
@@ -255,6 +259,7 @@ class TapExperienceActivity : ComponentActivity() {
 
     private fun showLinkedCard(resolution: CardResolution, source: RevealSource, record: Boolean, restart: Boolean) {
         val revision = (resolution as? CardResolution.Resolved)?.revision
+        PilotStore.record("linked_card_resolved", "result=${resolution::class.simpleName}")
         Log.i(KipatCards.TAG, "card_resolved result=${resolution::class.simpleName} card=${KipatCardId.masked(resolution.cardId)} source=${source.wireId} revision=$revision")
         if (record && resolution is CardResolution.Resolved) KipatCards.markSeen(resolution.cardId, System.currentTimeMillis(), source.wireId)
         val next = LinkedCardReveal.payloadFor(resolution, source)
@@ -272,7 +277,10 @@ class TapExperienceActivity : ComponentActivity() {
     /** The responder's Reveal appeared: proves the background launch was allowed. */
     private fun markDelivered(intent: Intent?) {
         val id = intent?.getLongExtra(KipatTapLauncher.EXTRA_EXCHANGE_ID, -1L) ?: -1L
-        if (id > 0 && hasTrustedPayload(intent!!)) KipatPeerSessions.deliveries.markShown(id)
+        if (id > 0 && hasTrustedPayload(intent!!)) {
+            KipatPeerSessions.deliveries.markShown(id)
+            PilotStore.record("reveal_activity_created")
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -341,6 +349,7 @@ class TapExperienceActivity : ComponentActivity() {
         when (m) {
             RevealMilestone.FIRST_VISUAL -> {
                 trace.firstVisual()
+                if (payload.source == RevealSource.PEER_NFC) PilotStore.record("reveal_displayed")
                 if (quality != RevealQuality.REDUCED_MOTION) KipatHaptics.revealStart(view)
             }
             RevealMilestone.IDENTITY_READABLE -> trace.identityReadable()
@@ -369,6 +378,7 @@ class TapExperienceActivity : ComponentActivity() {
         }
         if (payload.canConnect && !connected) {
             KipatRepository.connect(payload, payloadRevision)
+            PilotStore.record("connection_stored", "source=${payload.source.wireId}")
             connected = true
             KipatHaptics.connect(window.decorView)
         }

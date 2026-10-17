@@ -38,6 +38,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kipat.probe.data.KipatRepository
+import com.kipat.probe.pilot.PilotStore
 import com.kipat.probe.nfc.KipatTagUri
 import com.kipat.probe.nfc.NfcAvailability
 import com.kipat.probe.nfc.NfcWriteController
@@ -70,7 +71,7 @@ import java.io.File
  * original probe's log. Monospace is allowed here because these are raw values.
  */
 @Composable
-fun DeveloperToolsScreen(writer: NfcWriteController, onBack: () -> Unit, onNfcProfileTest: () -> Unit = {}, onManualPeerTest: () -> Unit = {}) {
+fun DeveloperToolsScreen(writer: NfcWriteController, onBack: () -> Unit, onNfcProfileTest: () -> Unit = {}, onManualPeerTest: () -> Unit = {}, onPhysicalPilot: () -> Unit = {}) {
     val context = LocalContext.current
     val identity by KipatRepository.identity.collectAsStateWithLifecycle()
     val writeState by writer.state.collectAsStateWithLifecycle()
@@ -116,7 +117,25 @@ fun DeveloperToolsScreen(writer: NfcWriteController, onBack: () -> Unit, onNfcPr
                 modifier = Modifier.padding(horizontal = KipatSpacing.gutter),
             )
 
+            SectionHeading("Developer info")
+            val build = PilotStore.build
+            ActionRow(build.title, value = "build ${build.buildNumber}")
+            KipatDivider()
+            ActionRow("Commit", value = build.shortSha)
+            KipatDivider()
+            ActionRow("Built", value = build.buildTime)
+            KipatDivider()
+            ActionRow("Build type", value = build.buildType)
+
             SectionHeading("Prototype tools")
+            ActionRow(
+                "Physical pilot",
+                icon = KipatSymbols.Contactless,
+                supporting = "Two-phone and card test, stage diagnostics, export",
+                chevron = true,
+                onClick = onPhysicalPilot,
+            )
+            KipatDivider()
             ActionRow(
                 "NFC full profile test",
                 icon = KipatSymbols.Contactless,

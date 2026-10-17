@@ -6,6 +6,8 @@ import android.nfc.Tag
 import android.os.Bundle
 import android.util.Log
 import com.kipat.probe.nfc.profile.KipatProfileMessage
+import com.kipat.probe.pilot.CardTestRecord
+import com.kipat.probe.pilot.PilotStore
 import com.kipat.probe.nfc.profile.NdefRecordData
 import com.kipat.probe.nfc.profile.NfcProfileFormat
 import com.kipat.probe.nfc.profile.NfcProfileMode
@@ -60,6 +62,19 @@ class NfcProfileSession(private val activity: Activity, private val scope: Corou
     private var pendingWrite: ProfileWriteRequest? = null
     private var replaceConfirmed = false
     private var heldTag: Tag? = null
+    /** The card as it was read before the last write, for the pilot card record. */
+    private var lastSnapshot: TagSnapshot? = null
+
+    private fun cardRecord(action: String, t: TagSnapshot, result: String, bytes: Int? = t.messageSize) = CardTestRecord(
+        action = action,
+        technologies = t.techs.joinToString(", "),
+        ndefType = t.ndefType,
+        capacityBytes = t.maxSize,
+        writable = t.writable,
+        messageBytes = bytes,
+        result = result,
+        atWallMs = System.currentTimeMillis(),
+    )
 
     fun availability(): NfcAvailability = NfcWriteController.availability(activity)
 
@@ -123,6 +138,14 @@ class NfcProfileSession(private val activity: Activity, private val scope: Corou
         val snapshot = NfcProfileTagIo.snapshot(tag)
         val profile = snapshot.profileRecord?.let { NfcProfileFormat.parse(it.payload) }
         _state.value = ProfileTagState.Detected(snapshot, profile)
+        val result = when {
+            snapshot.records == null -> "UNREADABLE"
+            profile is NfcProfileParse.Valid -> "KIPAT_PROFILE_VALID"
+            profile != null -> "KIPAT_PROFILE_INVALID"
+            snapshot.records.isEmpty() -> "BLANK"
+            else -> "OTHER_DATA"
+        }
+        PilotStore.cardResult(cardRecord("read", snapshot, result))
         // Shape only, never field values: the profile content stays on the screen.
         Log.i(TAG, "read ndef=${snapshot.ndefType} max=${snapshot.maxSize} writable=${snapshot.writable} records=${snapshot.records?.size} bytes=${snapshot.messageSize} profile=${profile?.let { it::class.simpleName }}")
     }
@@ -130,6 +153,7 @@ class NfcProfileSession(private val activity: Activity, private val scope: Corou
     private fun write(tag: Tag, request: ProfileWriteRequest) {
         _state.value = ProfileTagState.Working("Checking card…")
         val before = NfcProfileTagIo.snapshot(tag)
+        lastSnapshot = before
         if (before.readError != null && before.supportsNdef && before.maxSize == null) {
             _state.value = ProfileTagState.WaitingForCard(writing = true, note = "Card moved away. Hold it still and tap again")
             return
@@ -178,6 +202,17 @@ class NfcProfileSession(private val activity: Activity, private val scope: Corou
     }
 
     private fun finish(state: ProfileTagState) {
+        val result = when (state) {
+            is ProfileTagState.Verified -> "WRITE_VERIFIED"
+            is ProfileTagState.TooLarge -> "TOO_LARGE"
+            is ProfileTagState.Failed -> "FAILED"
+            else -> null
+        }
+        val tagSnapshot = (state as? ProfileTagState.Verified)?.tag ?: lastSnapshot
+        if (result != null && tagSnapshot != null) {
+            val bytes = (state as? ProfileTagState.Verified)?.messageBytes ?: (state as? ProfileTagState.TooLarge)?.required
+            PilotStore.cardResult(cardRecord("write", tagSnapshot, result, bytes))
+        }
         Log.i(TAG, "write ${state::class.simpleName}" + when (state) {
             is ProfileTagState.TooLarge -> " required=${state.required} available=${state.available}"
             is ProfileTagState.Verified -> " bytes=${state.messageBytes} max=${state.tag.maxSize}"

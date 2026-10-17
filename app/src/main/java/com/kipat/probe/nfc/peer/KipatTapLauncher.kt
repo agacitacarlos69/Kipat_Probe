@@ -9,6 +9,7 @@ import com.kipat.probe.data.KipatRepository
 import com.kipat.probe.data.NfcProfileReveal.toRevealPayload
 import com.kipat.probe.nfc.peer.KipatApduProtocol.shortId
 import com.kipat.probe.nfc.profile.NfcProfilePayload
+import com.kipat.probe.pilot.PilotStore
 import com.kipat.probe.reveal.RevealLauncher
 import com.kipat.probe.reveal.RevealPayload
 import com.kipat.probe.reveal.RevealSource
@@ -39,6 +40,7 @@ object KipatTapLauncher {
         }
         // The responder may run with no UI ever opened in this process: load Connections first.
         KipatLocalStore.init(context)
+        PilotStore.peerSeen(payloadFor(peer))
         val delivery = KipatPeerSessions.deliveries.offer(peer, TapRole.RESPONDER) ?: run {
             log.event(PeerLog.TAG_LAUNCH, "duplicate_exchange_ignored", "role=responder session=${presenter.shortId()}")
             return

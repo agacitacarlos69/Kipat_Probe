@@ -7,6 +7,7 @@ import android.nfc.cardemulation.HostApduService
 import android.os.Bundle
 import android.os.SystemClock
 import android.util.Log
+import com.kipat.probe.pilot.PilotStore
 import com.kipat.probe.data.KipatIdentityStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -50,13 +51,18 @@ class KipatHceService : HostApduService() {
 
 /** Process-wide phone-to-phone state, shared by the UI, [KipatHceService] and the Reveal. */
 object KipatPeerSessions {
-    val log = PeerLog { tag, name, detail -> Log.i(tag, if (detail.isEmpty()) name else "$name $detail") }
+    val log = PeerLog { tag, name, detail ->
+        Log.i(tag, if (detail.isEmpty()) name else "$name $detail")
+        // Physical pilot: the same content-free events, kept in a bounded on-device buffer.
+        PilotStore.record(name, detail, tag)
+    }
 
     @Volatile private var appContext: Context? = null
 
     /** Gives the ambient source a Context; called by the service, MainActivity and the Reveal. */
     fun attach(context: Context) {
         appContext = context.applicationContext
+        PilotStore.attach(context)
         presenter.ambientListener = PeerDeliveryListener { peer, presenter, reader, bytes ->
             appContext?.let { KipatTapLauncher.deliverAsResponder(it, peer, presenter, reader, bytes) }
         }

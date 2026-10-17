@@ -49,6 +49,7 @@ import com.kipat.probe.ui.screens.profile.ProfileEditScreen
 import com.kipat.probe.ui.screens.profile.ProfileScreen
 import com.kipat.probe.ui.screens.profile.RevealStyleScreen
 import com.kipat.probe.ui.screens.developer.ManualPeerTestScreen
+import com.kipat.probe.ui.screens.developer.PhysicalPilotScreen
 import com.kipat.probe.ui.screens.share.ShareScreen
 import com.kipat.probe.ui.theme.Kipat
 import com.kipat.probe.ui.theme.KipatMotion
@@ -170,6 +171,14 @@ fun KipatApp(
                     onBack = { navController.popBackStack() },
                     onNfcProfileTest = { navController.navigate(KipatRoutes.NFC_PROFILE) },
                     onManualPeerTest = { navController.navigate(KipatRoutes.NFC_MANUAL_PEER) },
+                    onPhysicalPilot = { navController.navigate(KipatRoutes.PILOT) },
+                )
+            }
+            pushed(KipatRoutes.PILOT) {
+                PhysicalPilotScreen(
+                    onBack = { navController.popBackStack() },
+                    onCardTester = { navController.navigate(KipatRoutes.NFC_PROFILE) },
+                    onKipatCards = { navController.navigate(KipatRoutes.CARDS) },
                 )
             }
             pushed(KipatRoutes.NFC_PROFILE) {
