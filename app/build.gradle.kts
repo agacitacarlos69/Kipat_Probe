@@ -6,6 +6,16 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+// Build identity. CI passes these (pilot-apk.yml); local builds fall back to git and "local".
+// The pilot version code (100 + build number) stays above the v0.2.0 release (2), so a pilot APK
+// signed with the same key installs over it as an update. Future store releases must use >= 10000.
+val buildNumber: Int = providers.environmentVariable("KIPAT_BUILD_NUMBER").orNull?.toIntOrNull() ?: 0
+val gitSha: String = providers.environmentVariable("KIPAT_GIT_SHA").orNull?.take(12)
+    ?: runCatching {
+        providers.exec { commandLine("git", "rev-parse", "--short=7", "HEAD") }.standardOutput.asText.get().trim()
+    }.getOrDefault("unknown")
+val buildTime: String = providers.environmentVariable("KIPAT_BUILD_TIME").orNull ?: "local build"
+
 android {
     namespace = "com.kipat.probe"
     compileSdk {
@@ -16,8 +26,13 @@ android {
         applicationId = "com.kipat.probe"
         minSdk = 26
         targetSdk = 37
-        versionCode = 2
-        versionName = "0.2.0-shell"
+        versionCode = if (buildNumber > 0) 100 + buildNumber else 2
+        versionName = if (buildNumber > 0) "0.2.1" else "0.2.0-shell"
+
+        // Build identity, shown in Developer tools so two phones can prove they run the same build.
+        buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
+        buildConfigField("String", "BUILD_TIME", "\"$buildTime\"")
+        buildConfigField("int", "BUILD_NUMBER", "$buildNumber")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -49,6 +64,16 @@ android {
             }
             signingConfigs.findByName("release")?.let { signingConfig = it }
         }
+        // Physical pilot builds (CI: .github/workflows/pilot-apk.yml). Same application id and the
+        // same stable release key, so each new pilot APK installs as an UPDATE (Room database,
+        // profile and settings survive). Non-debuggable: no sample data, real-user behaviour.
+        // Never signed with a throwaway key: without the release key the APK stays unsigned.
+        create("pilot") {
+            initWith(getByName("release"))
+            matchingFallbacks += listOf("release")
+            versionNameSuffix = "-pilot.$buildNumber"
+            signingConfigs.findByName("release")?.let { signingConfig = it }
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -56,6 +81,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     testOptions {
         // Robolectric smoke tests need merged resources and the merged manifest.
