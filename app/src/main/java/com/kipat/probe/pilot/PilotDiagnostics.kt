@@ -48,6 +48,8 @@ data class TapAttempt(
     val stages: Map<PilotStage, StageState>,
     val failureCode: String? = null,
     val finishedMonoMs: Long? = null,
+    /** "e-xxxxxx": the same value on both phones for one exchange (from HELLO). */
+    val correlation: String? = null,
 ) {
     fun result(stage: PilotStage): StageResult = stages[stage]?.result
         ?: if (stage == PilotStage.REVEAL_DISPLAYED && stages[PilotStage.REVEAL_REQUESTED]?.result == StageResult.PASS) StageResult.UNKNOWN
@@ -66,6 +68,7 @@ object PilotRedactor {
         "bytes", "ms", "since_create_ms", "offset", "of", "maxTransceive", "chunk", "v",
         "down", "up", "uploaded", "reason", "kind", "encounters", "ambient", "committed",
         "fallback", "send_back", "role", "ndef", "partial_upload_cleared", "result", "source", "status",
+        "x", "upload",
     )
     private val VALUE = Regex("^[A-Za-z0-9_.-]{1,32}$")
 
@@ -151,7 +154,18 @@ class PilotTracker(
             // ---- protocol
             "hce_aid_selected" -> { ensure(TapRoleSeen.INITIATOR, now); pass(PilotStage.KIPAT_AID, now) }
             "kipat_aid_selected" -> { ensure(TapRoleSeen.RESPONDER, now); pass(PilotStage.KIPAT_AID, now) }
-            "peer_hello" -> { ensure(null, now); pass(PilotStage.HELLO, now) }
+            "peer_hello" -> {
+                ensure(null, now); pass(PilotStage.HELLO, now)
+                PilotRedactor.value(detail, "x")?.let { x -> current()?.let { replace(it.copy(correlation = x)) } }
+            }
+            // Both phones carry the same public profile id: Kipat treats the peer as "you" and stops.
+            "own_profile_upload_skipped" -> { ensure(null, now); fail(PilotStage.OWN_UPLOAD, FailureCodes.of(PilotStage.OWN_UPLOAD, code ?: "same_profile_id"), now) }
+            "responder_reveal_skipped" -> {
+                ensure(null, now)
+                if (code == "same_profile_id") fail(PilotStage.REVEAL_REQUESTED, FailureCodes.of(PilotStage.REVEAL_REQUESTED, code), now)
+            }
+            // The other phone refused part of our upload (BEGIN, WRITE or COMMIT).
+            "peer_upload_failed" -> { ensure(null, now); fail(PilotStage.OWN_UPLOAD, FailureCodes.of(PilotStage.OWN_UPLOAD, code), now) }
             "profile_download_complete" -> { ensure(TapRoleSeen.INITIATOR, now); pass(PilotStage.PEER_DOWNLOAD, now) }
             "peer_profile_chunk_read" -> {
                 // Responder: our profile fully read by the other phone = our profile delivered.
@@ -194,7 +208,7 @@ class PilotTracker(
                 }
             }
             "duplicate_exchange_ignored", "peer_exchange_duplicate", "duplicate_ignored",
-            "responder_reveal_skipped", "ambient_rate_limited", "type4_refused",
+            "mutual_incomplete", "ambient_rate_limited", "type4_refused",
             "linked_card_resolved", "card_read", "card_write", "connection_stored",
             "isodep_connected", "ambient_initiator_created", "exchange_complete", "peer_exchange_success",
             "peer_upload_started", "own_profile_upload_started", "profile_download_started", "kipat_peer_detected" -> Unit
@@ -206,7 +220,8 @@ class PilotTracker(
 
     private fun resultLabel(name: String) = when {
         name.contains("failed") || name.contains("blocked") || name.contains("lost") -> "FAIL"
-        name.contains("duplicate") || name.contains("skipped") || name.contains("refused") || name.contains("rate_limited") -> "INFO"
+        name.contains("skipped") -> "FAIL"
+        name.contains("duplicate") || name.contains("incomplete") || name.contains("refused") || name.contains("rate_limited") -> "INFO"
         else -> "PASS"
     }
 

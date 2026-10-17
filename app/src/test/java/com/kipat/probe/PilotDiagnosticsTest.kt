@@ -181,4 +181,32 @@ class PilotDiagnosticsTest {
         tracker.onEvent("peer_exchange_failed", "reason=PROTOCOL IOException", "KipatPeerNfc")
         assertEquals("unknown reason fails the next unreached stage", "AID_PROTOCOL", tracker.last()!!.failureCode)
     }
+
+    // ------------------------------------------------------------------ P1-NFC-MUTUAL-EXCHANGE codes
+
+    @Test
+    fun sameProfileIdAndRejectedUploadsAreNamedFailures() {
+        at(0, "ndef_dispatched")
+        at(40, "hce_aid_selected", "ok", "KipatPeerReader")
+        at(60, "peer_hello", "v=1 presenter=aa reader=bb caps=1 x=e-a81f92", "KipatPeerProtocol")
+        at(180, "profile_download_complete", "bytes=820", "KipatPeerReader")
+        at(181, "own_profile_upload_skipped", "reason=same_profile_id", "KipatPeerReader")
+        val a = tracker.last()!!
+        assertEquals("e-a81f92", a.correlation)
+        assertEquals("OWN_UPLOAD_SAME_PROFILE_ID", a.failureCode)
+        assertEquals(StageResult.FAIL, a.result(PilotStage.OWN_UPLOAD))
+
+        mono += 60_000
+        tracker.onEvent("type4_selected")
+        tracker.onEvent("responder_reveal_skipped", "reason=same_profile_id", "KipatTapLaunch")
+        assertEquals("REVEAL_REQUESTED_SAME_PROFILE_ID", tracker.last()!!.failureCode)
+
+        mono += 60_000
+        tracker.onEvent("ndef_dispatched")
+        tracker.onEvent("profile_download_complete", "bytes=820", "KipatPeerReader")
+        tracker.onEvent("peer_upload_failed", "reason=commit_rejected", "KipatPeerReader")
+        assertEquals("OWN_UPLOAD_COMMIT_REJECTED", tracker.last()!!.failureCode)
+        assertEquals("ids in hello are never kept", "v=1 x=e-a81f92", tracker.events().first { it.name == "peer_hello" }.detail.let { d -> d.split(' ').filter { it.startsWith("v=") || it.startsWith("x=") }.joinToString(" ") })
+        assertFalse(tracker.events().any { it.detail.contains("presenter=") })
+    }
 }

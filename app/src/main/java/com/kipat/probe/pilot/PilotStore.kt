@@ -29,6 +29,7 @@ object PilotStore {
     private const val TAG = "KipatPilot"
     private const val FILE = "pilot_diagnostics.json"
     private const val PREFS = "kipat_pilot"
+    private const val CLEARED_AT = "results_cleared_at"
 
     val tracker = PilotTracker(monoClock = SystemClock::elapsedRealtime, wallClock = System::currentTimeMillis)
     private val io = Executors.newSingleThreadExecutor { r -> Thread(r, "kipat-pilot").apply { isDaemon = true } }
@@ -95,7 +96,8 @@ object PilotStore {
     fun reset(context: Context) {
         tracker.clear()
         peer = null; peerKey = null; card = null
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { clear() }
+        // Exported, so an empty buffer can be told apart from "nothing happened".
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { clear(); putLong(CLEARED_AT, System.currentTimeMillis()) }
         changed()
     }
 
@@ -116,7 +118,12 @@ object PilotStore {
         )
         val identity = KipatRepository.identity.value
         val profile = ProfileSnapshot(identity.cardId, identity.displayName, identity.revealTemplate.label, identity.revealTheme.label)
-        return PilotState(build, device, profile, tracker.last(), tracker.attempts(), tracker.events(), peer, connectionStored(), card, checklist(context))
+        val pkg = runCatching { pm.getPackageInfo(context.packageName, 0) }.getOrNull()
+        val cleared = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(CLEARED_AT, 0L).takeIf { it > 0 }
+        return PilotState(
+            build, device, profile, tracker.last(), tracker.attempts(), tracker.events(), peer, connectionStored(), card, checklist(context),
+            installedAtMs = pkg?.firstInstallTime, updatedAtMs = pkg?.lastUpdateTime, clearedAtMs = cleared,
+        )
     }
 
     // ------------------------------------------------------------------ persistence
@@ -160,6 +167,7 @@ object PilotStore {
     private fun attemptToJson(a: TapAttempt) = JSONObject()
         .put("id", a.id).put("role", a.role.name).put("wall", a.startedWallMs).put("mono", a.startedMonoMs)
         .put("failure", a.failureCode ?: JSONObject.NULL).put("finished", a.finishedMonoMs ?: JSONObject.NULL)
+        .put("x", a.correlation ?: JSONObject.NULL)
         .put("stages", JSONObject().apply { a.stages.forEach { (s, st) -> put(s.name, JSONObject().put("r", st.result.name).put("at", st.atMs ?: JSONObject.NULL)) } })
 
     private fun attemptFromJson(o: JSONObject): TapAttempt {
@@ -178,6 +186,7 @@ object PilotStore {
             stages = stages,
             failureCode = o.optString("failure").takeIf { it.isNotBlank() && it != "null" },
             finishedMonoMs = if (o.isNull("finished")) null else o.getLong("finished"),
+            correlation = o.optString("x").takeIf { it.startsWith("e-") },
         )
     }
 }

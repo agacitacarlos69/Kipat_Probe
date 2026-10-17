@@ -135,6 +135,10 @@ fun PhysicalPilotScreen(onBack: () -> Unit, onCardTester: () -> Unit, onKipatCar
                 Note("No Kipat Tap recorded yet. Touch the two phones together, then come back here.")
             } else {
                 ActionRow("Role", value = last.role.label)
+                last.correlation?.let {
+                    KipatDivider()
+                    ActionRow("Exchange", value = it)
+                }
                 PilotStage.entries.forEach { s ->
                     KipatDivider()
                     val r = last.result(s)

@@ -79,6 +79,10 @@ data class PilotState(
     val connectionStored: Boolean?,
     val card: CardTestRecord?,
     val checklist: Map<PilotCheck, Boolean>,
+    /** When this APK was first installed / last updated, and when results were last cleared. */
+    val installedAtMs: Long? = null,
+    val updatedAtMs: Long? = null,
+    val clearedAtMs: Long? = null,
 )
 
 /**
@@ -105,6 +109,7 @@ object PilotReport {
     fun attemptJson(a: TapAttempt): JSONObject = JSONObject()
         .put("id", a.id)
         .put("role", a.role.name.lowercase())
+        .put("exchange", a.correlation ?: JSONObject.NULL)
         .put("startedAt", iso(a.startedWallMs))
         .put("failureCode", a.failureCode ?: JSONObject.NULL)
         .put("durationMs", a.durationMs ?: JSONObject.NULL)
@@ -124,7 +129,10 @@ object PilotReport {
             .put("buildNumber", state.build.buildNumber)
             .put("gitSha", state.build.gitSha)
             .put("buildTime", state.build.buildTime)
-            .put("buildType", state.build.buildType))
+            .put("buildType", state.build.buildType)
+            .put("installedAt", state.installedAtMs?.let(::iso) ?: JSONObject.NULL)
+            .put("updatedAt", state.updatedAtMs?.let(::iso) ?: JSONObject.NULL)
+            .put("resultsClearedAt", state.clearedAtMs?.let(::iso) ?: JSONObject.NULL))
         .put("device", JSONObject()
             .put("manufacturer", state.device.manufacturer)
             .put("model", state.device.model)
@@ -211,6 +219,7 @@ tester ticked in the checklist.
             appendLine("Last Kipat Tap: none recorded")
         } else {
             appendLine("Last Kipat Tap (${a.role.label.lowercase()}):")
+            a.correlation?.let { appendLine("Exchange: $it") }
             PilotStage.entries.forEach { s ->
                 val t = a.elapsed(s)?.let { " ${it}ms" }.orEmpty()
                 appendLine("${s.label} ${a.result(s).name.replace('_', ' ')}$t")

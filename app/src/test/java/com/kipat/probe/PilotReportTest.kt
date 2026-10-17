@@ -117,11 +117,16 @@ class PilotReportTest {
         PilotStore.reset(context)
         PilotStore.record("type4_selected", "ndef=112", "KipatType4")
         PilotStore.record("bootstrap_read", "bytes=110", "KipatType4")
+        PilotStore.record("peer_hello", "v=1 x=e-0a1b2c", "KipatPeerProtocol")
         val saved = PilotStore.encode()
         PilotStore.tracker.clear()
         PilotStore.decode(saved)
-        assertEquals(2, PilotStore.tracker.events().size)
+        assertEquals(3, PilotStore.tracker.events().size)
         assertEquals(1, PilotStore.tracker.attempts().size)
+        assertEquals("e-0a1b2c", PilotStore.tracker.last()!!.correlation)
+        val summary = PilotReport.summaryJson(PilotStore.state(context), 0)
+        assertEquals("e-0a1b2c", summary.getJSONObject("lastAttempt").getString("exchange"))
+        assertTrue(summary.getJSONObject("build").has("installedAt"))
         PilotStore.reset(context)
     }
 }
