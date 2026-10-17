@@ -35,7 +35,7 @@ object KipatTapLauncher {
         val log = KipatPeerSessions.log
         val own = KipatTapStore.snapshot(context)?.profile
         if (KipatPeerProfile.isSamePerson(peer, own?.id)) {
-            log.event(PeerLog.TAG_LAUNCH, "responder_reveal_skipped", "reason=own_profile")
+            log.event(PeerLog.TAG_LAUNCH, "responder_reveal_skipped", "reason=same_profile_id")
             return
         }
         // The responder may run with no UI ever opened in this process: load Connections first.

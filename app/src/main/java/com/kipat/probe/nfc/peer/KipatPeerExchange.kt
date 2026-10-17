@@ -34,6 +34,16 @@ sealed interface PeerExchangeResult {
     ) : PeerExchangeResult {
         /** Key for "same exchange twice in a row is one discovery". */
         val dedupeKey: String get() = "$presenterSession:${profile.id ?: profile.displayName}"
+
+        /**
+         * Kipat Tap is always mutual: we have their profile but ours did not reach them (link lost or
+         * rejected before COMMIT was confirmed). Not a finished exchange: keep the phones together and
+         * retry, never a one-sided Reveal. TOO_LARGE and NOT_SUPPORTED_BY_PEER are final, not retried.
+         */
+        val reverseTripIncomplete: Boolean get() = upload == UploadOutcome.FAILED
+
+        /** Same short id on both phones for one exchange (hash of both HELLO session ids, not the ids). */
+        val correlation: String get() = KipatApduProtocol.correlation(presenterSession, readerSession)
     }
 
     data class Failed(val reason: PeerFailure, val detail: String) : PeerExchangeResult
@@ -87,7 +97,7 @@ class KipatPeerExchange(
             if (hello.data[0] != KipatApduProtocol.PROTOCOL_VERSION) fail(PeerFailure.UNSUPPORTED_VERSION, "presenter v=${hello.data[0]}")
             val presenterSession = hello.data.copyOfRange(1, 1 + KipatApduProtocol.SESSION_ID_BYTES)
             val caps = hello.data.last().toInt() and 0xFF
-            log.event(PeerLog.TAG_PROTOCOL, "peer_hello", "v=1 presenter=${presenterSession.shortId()} reader=${readerSession.shortId()} caps=$caps")
+            log.event(PeerLog.TAG_PROTOCOL, "peer_hello", "v=1 presenter=${presenterSession.shortId()} reader=${readerSession.shortId()} caps=$caps x=${KipatApduProtocol.correlation(presenterSession, readerSession)}")
 
             val meta = expectOk(send(KipatApduProtocol.getMeta(), "meta"), "meta")
             if (meta.data.size != KipatApduProtocol.META_RESPONSE_BYTES) fail(PeerFailure.PROTOCOL, "meta length ${meta.data.size}")
@@ -110,6 +120,7 @@ class KipatPeerExchange(
             log.event(PeerLog.TAG_READER, "profile_download_complete", "bytes=$length")
 
             val isSelf = KipatPeerProfile.isSamePerson(profile, ownProfileId)
+            if (isSelf) log.event(PeerLog.TAG_READER, "own_profile_upload_skipped", "reason=same_profile_id")
             val upload = when {
                 isSelf -> UploadOutcome.SKIPPED_OWN_PROFILE
                 ownProfile == null -> UploadOutcome.NOT_REQUESTED
@@ -155,14 +166,14 @@ class KipatPeerExchange(
         onProgress(ReceiveProgress.SENDING_OWN_PROFILE)
         log.event(PeerLog.TAG_READER, "peer_upload_started", "bytes=${bytes.size}")
         return try {
-            if (!send(KipatApduProtocol.beginUpload(bytes.size, KipatApduProtocol.sha256(bytes)), "begin").isOk) return UploadOutcome.FAILED
+            if (!send(KipatApduProtocol.beginUpload(bytes.size, KipatApduProtocol.sha256(bytes)), "begin").isOk) return rejected("begin_rejected")
             var offset = 0
             while (offset < bytes.size) {
                 val part = bytes.copyOfRange(offset, minOf(bytes.size, offset + chunk))
-                if (!send(KipatApduProtocol.writeChunk(offset, part), "write").isOk) return UploadOutcome.FAILED
+                if (!send(KipatApduProtocol.writeChunk(offset, part), "write").isOk) return rejected("write_rejected")
                 offset += part.size
             }
-            if (!send(KipatApduProtocol.commitUpload(), "commit").isOk) return UploadOutcome.FAILED
+            if (!send(KipatApduProtocol.commitUpload(), "commit").isOk) return rejected("commit_rejected")
             up = bytes.size
             log.event(PeerLog.TAG_READER, "peer_upload_completed", "bytes=${bytes.size}")
             UploadOutcome.SENT
@@ -171,6 +182,11 @@ class KipatPeerExchange(
             log.event(PeerLog.TAG_READER, "peer_link_lost", "during_upload")
             UploadOutcome.FAILED
         }
+    }
+
+    private fun rejected(reason: String): UploadOutcome {
+        log.event(PeerLog.TAG_READER, "peer_upload_failed", "reason=$reason")
+        return UploadOutcome.FAILED
     }
 
     private fun send(command: ByteArray, what: String): KipatApduProtocol.Response =

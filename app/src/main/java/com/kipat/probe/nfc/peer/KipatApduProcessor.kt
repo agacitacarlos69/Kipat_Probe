@@ -104,7 +104,7 @@ class KipatApduProcessor(
         linkSession = session
         readerSession = data.copyOfRange(1, data.size)
         store.onPeerHello(session)
-        log.event(PeerLog.TAG_PROTOCOL, "peer_hello", "v=1 presenter=${session.sessionId.shortId()} reader=${readerSession!!.shortId()}")
+        log.event(PeerLog.TAG_PROTOCOL, "peer_hello", "v=1 presenter=${session.sessionId.shortId()} reader=${readerSession!!.shortId()} x=${KipatApduProtocol.correlation(session.sessionId, readerSession!!)}")
         val caps = KipatApduProtocol.CAP_PROFILE_DOWNLOAD or KipatApduProtocol.CAP_PEER_PROFILE_UPLOAD
         return KipatApduProtocol.ok(byteArrayOf(KipatApduProtocol.PROTOCOL_VERSION) + session.sessionId + byteArrayOf(caps.toByte()))
     }

@@ -110,6 +110,16 @@ object KipatApduProtocol {
     /** First 8 hex characters: enough to correlate logs, never the whole id. */
     fun ByteArray.shortId(): String = toHex().take(8)
 
+    /**
+     * Diagnostic correlation id for one exchange, identical on both phones: "e-" + 6 hex characters
+     * of SHA-256 over both HELLO session ids. One-way and short, so neither session id is exposed.
+     */
+    fun correlation(presenterSession: ByteArray, readerSession: ByteArray): String =
+        "e-" + sha256("kipat-x".toByteArray() + presenterSession + readerSession).copyOfRange(0, 3).toHex().lowercase()
+
+    fun correlation(presenterSessionHex: String, readerSessionHex: String): String =
+        correlation(hex(presenterSessionHex), hex(readerSessionHex))
+
     /** Largest chunk that fits this reader's ISO-DEP frame (command = 5 header bytes + data). */
     fun chunkSizeFor(maxTransceiveLength: Int): Int = (maxTransceiveLength - 6).coerceIn(16, MAX_CHUNK)
 }

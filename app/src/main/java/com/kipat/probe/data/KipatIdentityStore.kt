@@ -11,6 +11,7 @@ import com.kipat.probe.reveal.RevealTemplateId
 import com.kipat.probe.reveal.RevealTheme
 import org.json.JSONObject
 import java.io.File
+import java.security.SecureRandom
 
 /**
  * Persistence for the canonical Kipat identity (KipatRepository.identity): profile fields,
@@ -40,7 +41,16 @@ object KipatIdentityStore {
     fun init(context: Context, persistCurrent: Boolean = false) {
         val dir = context.applicationContext.filesDir
         if (!initialized) {
-            read(File(dir, FILE))?.let { (identity, revision) ->
+            read(File(dir, FILE))?.let { (saved, savedRevision) ->
+                var identity = saved
+                var revision = savedRevision
+                if (needsOwnProfileId(saved)) {
+                    // Installs before pilot.2 all shared the sample id: every phone looked like "you".
+                    identity = saved.copy(cardId = newProfileId())
+                    revision = savedRevision + 1
+                    write(File(dir, FILE), identity, revision)
+                    runCatching { Log.i(TAG, "profile_id_assigned reason=shared_placeholder") }
+                }
                 KipatRepository.restoreIdentity(identity, revision)
                 persisted = true
             }
@@ -51,11 +61,28 @@ object KipatIdentityStore {
             initialized = true
         }
         if (persistCurrent && !persisted) {
-            val (identity, revision) = KipatRepository.published()
+            val (current, revision) = KipatRepository.published()
+            // First run: this install's own public profile id, never the shared sample id.
+            val identity = if (needsOwnProfileId(current)) current.copy(cardId = newProfileId()) else current
             write(File(dir, FILE), identity, revision)
+            if (identity !== current) KipatRepository.restoreIdentity(identity, revision)
+            runCatching { Log.i(TAG, "profile_id_assigned reason=first_run") }
             persisted = true
         }
     }
+
+    /**
+     * The public profile id is what Kipat Tap, the share link and Connections use to tell two people
+     * apart, so it must be unique per person. The sample identity's id is shared by every install.
+     */
+    internal fun needsOwnProfileId(identity: Identity): Boolean =
+        identity.cardId.isBlank() || identity.cardId == SampleData.DEMO_CARD_ID
+
+    private const val ID_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ" // Crockford base32: no I, L, O, U
+
+    /** "KPT-" + 12 random base32 characters (60 bits). Valid for the NFC profile id rule. */
+    internal fun newProfileId(random: SecureRandom = SecureRandom()): String =
+        "KPT-" + String(CharArray(12) { ID_ALPHABET[random.nextInt(ID_ALPHABET.length)] })
 
     /** Whether a profile was ever published on this phone (else Kipat Tap has nothing to share). */
     fun hasPublishedProfile(context: Context): Boolean {

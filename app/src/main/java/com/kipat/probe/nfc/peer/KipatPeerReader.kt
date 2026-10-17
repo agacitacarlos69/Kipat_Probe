@@ -150,6 +150,12 @@ class KipatPeerReader(private val activity: Activity, private val scope: Corouti
     private fun finish(result: PeerExchangeResult) {
         when (result) {
             is PeerExchangeResult.Success -> {
+                if (sendBack && result.reverseTripIncomplete) {
+                    // We have theirs, they don't have ours: not done. Stay armed for the same touch or a retry.
+                    log.event(PeerLog.TAG_AMBIENT, "mutual_incomplete", "upload=${result.upload}")
+                    _state.value = ReceiveState.TagLost(PeerFailure.LINK_LOST.message)
+                    return
+                }
                 if (!KipatPeerSessions.receiverDedupe.firstTime(result.dedupeKey, SystemClock.elapsedRealtime())) {
                     log.event(PeerLog.TAG_READER, "peer_exchange_duplicate", "presenter=${result.presenterSession.take(8)}")
                     return

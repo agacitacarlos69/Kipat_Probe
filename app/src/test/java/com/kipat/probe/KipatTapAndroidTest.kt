@@ -32,6 +32,8 @@ import com.kipat.probe.reveal.RevealPayloadCodec
 import com.kipat.probe.reveal.RevealSource
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertNotEquals
+import com.kipat.probe.reveal.RevealTemplateId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -57,7 +59,8 @@ class KipatTapAndroidTest {
     val compose = createEmptyComposeRule()
 
     private val context get() = ApplicationProvider.getApplicationContext<android.content.Context>()
-    private val own get() = KipatPeerProfile.fromIdentity(SampleData.identity)
+    /** What this phone publishes: the canonical identity, with the install's own profile id. */
+    private val own get() = KipatPeerProfile.fromIdentity(KipatRepository.identity.value)
     private val app get() = shadowOf(context as android.app.Application)
 
     @Before
@@ -84,11 +87,12 @@ class KipatTapAndroidTest {
     @Test
     fun publicSnapshotSurvivesAColdProcessAndIsPublicOnly() {
         publishOwn()
+        val published = own
         // As if the HCE service started in a fresh process: nothing in memory but the file.
         KipatIdentityStore.resetForTest()
         KipatRepository.restoreIdentity(SampleData.identity.copy(id = "other", fields = emptyMap()), 0)
         val snap = KipatTapStore.snapshot(context)!!
-        assertEquals(own, snap.profile)
+        assertEquals(published, snap.profile)
         assertArrayEquals(KipatApduProtocol.sha256(snap.bytes), snap.sha256)
         assertFalse("unpublished role and company never served", String(snap.bytes).contains("Founder") || String(snap.bytes).contains("\"Kipat\""))
         // Editing the profile refreshes the served snapshot at once, with no separate publish step.
@@ -191,6 +195,43 @@ class KipatTapAndroidTest {
         // Your own profile coming back never opens a Reveal.
         KipatTapLauncher.deliverAsResponder(context, own, ByteArray(16), ByteArray(16) { 3 }, 120)
         assertNull(app.nextStartedActivity)
+    }
+
+    // ------------------------------------------------------------------ P1-NFC-MUTUAL-EXCHANGE: profile id
+
+    @Test
+    fun firstRunPublishesAnOwnProfileIdNeverTheSharedSampleId() {
+        publishOwn()
+        val id = KipatRepository.identity.value.cardId
+        assertNotEquals(SampleData.DEMO_CARD_ID, id)
+        assertTrue(id.matches(Regex("^KPT-[0-9A-Z]{12}$")))
+        assertEquals("served over NFC", id, KipatTapStore.snapshot(context)!!.profile.id)
+        // A cold process (HCE service) reads the same id back: stable, not regenerated.
+        KipatIdentityStore.resetForTest()
+        KipatRepository.restoreIdentity(SampleData.identity, 0)
+        KipatIdentityStore.init(context)
+        assertEquals(id, KipatRepository.identity.value.cardId)
+    }
+
+    @Test
+    fun existingInstallWithTheSharedSampleIdIsMigratedOnceKeepingTheProfile() {
+        // Exactly what both pilot phones had on disk: an edited profile still carrying KPT-DEMO-0001.
+        val saved = SampleData.identity.copy(
+            fields = SampleData.identity.fields + (ProfileField.DISPLAY_NAME to "Kyle Jimenez"),
+            revealTemplate = RevealTemplateId.PRECISION_ORBIT,
+        )
+        File(context.filesDir, "kipat_identity.json").writeText(KipatIdentityStore.encode(saved, 5))
+        KipatIdentityStore.init(context)
+        val (migrated, revision) = KipatRepository.published()
+        assertNotEquals(SampleData.DEMO_CARD_ID, migrated.cardId)
+        assertEquals("name, Reveal and accent are kept", saved.copy(cardId = migrated.cardId), migrated)
+        assertEquals("a new revision so every share path re-reads it", 6, revision)
+        assertEquals(migrated.cardId, KipatIdentityStore.decode(File(context.filesDir, "kipat_identity.json").readText())!!.first.cardId)
+        // Next process start: the migrated id is kept, not migrated again.
+        KipatIdentityStore.resetForTest()
+        KipatIdentityStore.init(context)
+        assertEquals(migrated.cardId, KipatRepository.identity.value.cardId)
+        assertEquals(6, KipatRepository.published().second)
     }
 
     // ------------------------------------------------------------------ consumer UX

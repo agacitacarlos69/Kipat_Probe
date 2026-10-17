@@ -63,6 +63,11 @@ class KipatTapInitiator(
         job = scope.launch {
             val result = if (iso == null) null else withContext(Dispatchers.IO) { exchange(iso, own) }
             when {
+                // Mutual or nothing: their profile alone is not a finished Kipat Tap.
+                result is PeerExchangeResult.Success && result.reverseTripIncomplete -> {
+                    log.event(PeerLog.TAG_AMBIENT, "mutual_incomplete", "upload=${result.upload}")
+                    reacquire(own)
+                }
                 result is PeerExchangeResult.Success -> deliver(result)
                 result == null || result.retryable() -> reacquire(own)
                 else -> message((result as PeerExchangeResult.Failed).reason.message)

@@ -83,7 +83,8 @@ object RevealResolver {
 
         val base: RevealPayload = when {
             id == null && !hints.hasIdentity -> RevealPayload.unresolved(null, source)
-            id.equals(DEMO_ALIAS, ignoreCase = true) || id == ownIdentity.cardId ->
+            // KPT-DEMO-0001 was every install's id before pilot.2: tags written then still open your own demo profile.
+            id.equals(DEMO_ALIAS, ignoreCase = true) || id == ownIdentity.cardId || (ownCardIsDemo && id == SampleData.DEMO_CARD_ID) ->
                 ownIdentity.toRevealPayload(source, isDemo = ownCardIsDemo, authenticity = AuthenticityState.AUTHENTIC)
             target.channel == TapChannel.LEGACY_PROBE_TAG -> RevealPayload.unresolved(id, source).copy(
                 displayName = "Kipat probe tag",
